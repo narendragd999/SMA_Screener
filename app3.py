@@ -520,7 +520,7 @@ def check_v20_strategy(stock_data, stock_type, latest_sma_200):
     if max_gain >= 20:
         start_date = stock_data.index[start_idx].strftime('%Y-%m-%d')
         end_date = stock_data.index[-1].strftime('%Y-%m-%d')
-        return "Continuous Green Candles", max_gain, start_date, end_date, stock_data['Open'].iloc[start_idx]
+        return "Continuous Green Candles", max_gain, start_date, end_date, stock_data['Low'].iloc[start_idx]
     
     return None, 0, None, None, None
 
