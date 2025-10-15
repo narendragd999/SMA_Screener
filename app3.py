@@ -335,8 +335,10 @@ def calculate_sma_and_screen(symbols_df, start_date, end_date):
             if not symbol.endswith('.NS'):
                 symbol = symbol + '.NS'
             
+
             # Download historical stock data
             stock_data = yf.download(symbol, start=start_date, end=end_date, progress=False)
+
             if stock_data.empty:
                 st.warning(f"No stock data found for {symbol}. Skipping...")
                 processed_stocks += 1
@@ -447,11 +449,11 @@ def calculate_sma_and_screen(symbols_df, start_date, end_date):
             elif sma_200 < sma_50 and sma_50 < sma_20:
                 bearish_stocks.append(stock_info)
                 
-            # V20 Strategy: Check for 20%+ gain with green candles or single green candle
-            if stock_type in ['v200', 'v40', 'v40next']:
+            # V20 Strategy: Check for 20%+ gain with green candles or single green candle            
+            if stock_type in ['v200', 'v40', 'v40next','ml']:
                 momentum_period, momentum_gain, start_date_momentum, end_date_momentum, v20_low_price = check_v20_strategy(stock_data, stock_type, sma_200)
                 if momentum_gain >= 20:
-                    near_v20_low = abs(close_price - v20_low_price) / v20_low_price <= 0.02 if v20_low_price else False
+                    near_v20_low = abs(close_price - v20_low_price) / v20_low_price <= 0.06 if v20_low_price else False
                     v20_info = stock_info.copy()
                     v20_info.update({
                         'Momentum Gain (%)': round(momentum_gain, 2),
@@ -568,7 +570,7 @@ start_date = st.sidebar.date_input("Start Date", value=start_date, min_value=end
 end_date = st.sidebar.date_input("End Date", value=end_date)
 
 # Screen stocks when button is clicked
-if st.button("Screen Stocks"):
+if st.button("Screen Stocks"):    
     if not symbols_df.empty:
         with st.spinner("Fetching stock and financial data, calculating SMAs and V20 strategy..."):
             bullish_df, bearish_df, v20_df = calculate_sma_and_screen(symbols_df, start_date, end_date)
