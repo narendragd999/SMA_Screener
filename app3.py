@@ -18,7 +18,7 @@ Upload a CSV file with stock symbols and type (v200, v40, v40next, ML) to screen
 - Simple Moving Averages (20, 50, 200 days)
 - V20 strategy (20%+ gain with green candles, with v200 types below 200 SMA)
 - Financial performance (QoQ and YoY Net Profit/Actual Income, adjusted and raw, highest historical, and ascending checks)
-Stocks with current price within 2% of V20 strategy low price are highlighted in the V20 table.
+Stocks with current price within 6% of V20 strategy low price are highlighted in the V20 table.
 """)
 
 # Initialize session state
@@ -459,7 +459,7 @@ def calculate_sma_and_screen(symbols_df, start_date, end_date):
                         'Momentum Gain (%)': round(momentum_gain, 2),
                         'Momentum Duration': f"{start_date_momentum} to {end_date_momentum}",
                         'V20 Low Price': round(v20_low_price, 2) if v20_low_price else None,
-                        'Near V20 Low (Within 2%)': 'Yes' if near_v20_low else 'No'
+                        'Near V20 Low (Within 6%)': 'Yes' if near_v20_low else 'No'
                     })
                     v20_stocks.append(v20_info)
                 
@@ -611,7 +611,7 @@ if st.button("Screen Stocks"):
         st.subheader("V20 Strategy Stocks (20%+ Gain with Green Candles)")
         if not v20_df.empty:
             def highlight_near_v20_low(row):
-                if row['Near V20 Low (Within 2%)'] == 'Yes':
+                if row['Near V20 Low (Within 6%)'] == 'Yes':
                     return ['background-color: #90EE90'] * len(row)
                 return [''] * len(row)
             
@@ -645,7 +645,7 @@ if st.button("Screen Stocks"):
                     st.subheader(title)
                     display_columns = ['Symbol', 'Type', 'Close Price', '20 SMA', '50 SMA', '200 SMA', 'Company Type'] + pass_columns
                     if title == "V20 Stocks with All PASS Criteria":
-                        display_columns.extend(['Momentum Gain (%)', 'Momentum Duration', 'V20 Low Price', 'Near V20 Low (Within 2%)'])
+                        display_columns.extend(['Momentum Gain (%)', 'Momentum Duration', 'V20 Low Price', 'Near V20 Low (Within 6%)'])
                     st.dataframe(pass_df[display_columns].style.apply(highlight_near_v20_low, axis=1) if title == "V20 Stocks with All PASS Criteria" else pass_df[display_columns], use_container_width=True)
                     csv = pass_df[display_columns].to_csv(index=False)
                     st.download_button(
