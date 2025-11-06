@@ -20,7 +20,7 @@ os.makedirs(DATA_DIR, exist_ok=True)
 # Page Config
 st.set_page_config(page_title="OP & Sales Analyzer", layout="wide")
 
-# Custom CSS
+# Custom CSS for Professional Look
 st.markdown("""
 <style>
     .main { padding: 2rem; }
@@ -40,7 +40,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 st.markdown("<h1 class='title'>OP & Sales vs Stock Price Analyzer</h1>", unsafe_allow_html=True)
-st.markdown("<p class='subtitle'><strong style='color: #2ca02c;'>Full P&L cached locally • Auto-uses all available years</strong></p>", unsafe_allow_html=True)
+st.markdown("<p class='subtitle'><strong style='color: #2ca02c;'>Full P&L from 2013+ cached • Auto-uses all years</strong></p>", unsafe_allow_html=True)
 
 # ───────────────────────────────────────────────
 # SCRAPING & CACHING
@@ -96,35 +96,61 @@ def clean_numeric(s: pd.Series) -> pd.Series:
 
 def find_row(df: pd.DataFrame, name: str) -> tuple[str | None, str]:
     candidates = {
-        "profit": ["Operating Profit", "OP", "EBIT", "EBITDA", "Financing Profit", "Interest Income"],
-        "sales": ["Sales", "Revenue", "Net Sales", "Total Income", "Interest Earned"]
+        "profit": [
+            ("Operating Profit", "Operating Profit"),
+            ("OP", "Operating Profit"),
+            ("EBIT", "Operating Profit"),
+            ("EBITDA", "Operating Profit"),
+            ("Financing Profit", "Financing Profit"),
+            ("Interest Income", "Financing Profit"),
+        ],
+        "sales": [
+            ("Sales", "Sales"),
+            ("Revenue", "Sales"),
+            ("Net Sales", "Sales"),
+            ("Total Income", "Sales"),
+            ("Interest Earned", "Interest Earned"),
+        ],
     }
-    for idx in df.index:
-        if any(c.lower() in idx.lower() for c in candidates[name]):
-            return idx, candidates[name][0]
+    target = name.lower()
+    idx_lower = [i.lower().strip() for i in df.index]
+    search_list = candidates["profit"] if target == "profit" else candidates["sales"]
+    for keyword, display in search_list:
+        for idx in df.index:
+            if keyword.lower() in idx.lower():
+                return idx, display
+    matches = difflib.get_close_matches(target, idx_lower, n=1, cutoff=0.7)
+    if matches:
+        matched_idx = df.index[idx_lower.index(matches[0])]
+        return matched_idx, "Operating/Financing Profit" if target == "profit" else "Sales"
     return None, "Unknown"
 
 # ───────────────────────────────────────────────
-# P&L CACHING
+# LOAD OR SCRAPE P&L
 # ───────────────────────────────────────────────
 def get_pl_data(ticker: str, force_scrape: bool = False) -> pd.DataFrame | None:
     file_path = os.path.join(DATA_DIR, f"{ticker}_pl.csv")
+    
     if not force_scrape and os.path.exists(file_path):
         try:
             df = pd.read_csv(file_path, index_col=0)
-            st.success(f"Loaded P&L for **{ticker}** from cache")
+            st.success(f"Loaded P&L for **{ticker}** from local cache")
             return df
         except:
-            st.warning(f"Cache corrupt. Re-scraping...")
-    with st.spinner(f"Scraping **{ticker}**..."):
+            st.warning(f"Cache corrupt for {ticker}. Re-scraping...")
+
+    # Scrape fresh
+    with st.spinner(f"Scraping P&L for **{ticker}**..."):
         df = scrape_screener_data(ticker)
         if df is not None:
             df.to_csv(file_path)
-            st.success(f"Saved P&L to `{file_path}`")
+            st.success(f"Saved P&L for **{ticker}** to `{file_path}`")
+        else:
+            st.error(f"Failed to scrape **{ticker}**")
     return df
 
 # ───────────────────────────────────────────────
-# CORE ANALYSIS — FIXED: USES FULL P&L DATA
+# CORE ANALYSIS — FIXED FOR FULL DATA
 # ───────────────────────────────────────────────
 def analyze_single_ticker(ticker: str, user_fy_start: int, force_scrape: bool = False):
     ticker = ticker.strip().upper()
@@ -138,20 +164,31 @@ def analyze_single_ticker(ticker: str, user_fy_start: int, force_scrape: bool = 
     sales_row_idx, sales_label = find_row(pl_df, "sales")
 
     def extract_metric(row_idx):
-        if row_idx is None: return pd.Series()
+        if row_idx is None:
+            return pd.Series()
         series = pl_df.loc[row_idx].iloc[1:]
         raw_cols = pl_df.columns[1:]
         years, vals = [], []
         for i, col in enumerate(raw_cols):
             col_str = col.strip()
-            if col_str.upper() == "TTM": continue
+            if col_str.upper() == "TTM":
+                continue
             m = re.search(r"\d{4}", col_str)
             if m:
                 yr = int(m.group())
                 if 2000 <= yr <= 2100:
                     years.append(yr)
                     vals.append(series.iloc[i])
-        if not years: return pd.Series()
+                    continue
+            try:
+                yr = int(col_str)
+                if 2000 <= yr <= 2100:
+                    years.append(yr)
+                    vals.append(series.iloc[i])
+            except:
+                continue
+        if not years:
+            return pd.Series()
         clean = clean_numeric(pd.Series(vals, index=years))
         return clean[clean != 0].dropna()
 
@@ -160,9 +197,9 @@ def analyze_single_ticker(ticker: str, user_fy_start: int, force_scrape: bool = 
     if profit_clean.empty:
         return {"ticker": ticker, "error": "No Profit data"}
 
-    # AUTO-DETECT earliest P&L year
+    # FIXED: Auto-detect min year AFTER extraction
     earliest_pl_year = profit_clean.index.min()
-    fy_start = min(user_fy_start, earliest_pl_year - 1)  # Extend back for full FY coverage
+    fy_start = min(user_fy_start, earliest_pl_year - 1)  # Extend for full FY
 
     try:
         start_date = f"{fy_start}-04-01"
@@ -196,7 +233,6 @@ def analyze_single_ticker(ticker: str, user_fy_start: int, force_scrape: bool = 
             avg_price_sales = avg_price.loc[common_years_sales]
             has_sales = True
 
-    # Profit Table
     profit_1d = np.array(profit_clean).flatten()
     price_1d = np.array(avg_price_profit).flatten()
     ratio_profit_1d = np.round(price_1d / profit_1d, 4)
@@ -222,7 +258,6 @@ def analyze_single_ticker(ticker: str, user_fy_start: int, force_scrape: bool = 
             index=common_years_sales.astype(int),
         ).sort_index()
 
-    # Forecast
     X = merged_profit[f"{profit_label} (Cr)"].values.reshape(-1, 1)
     y = merged_profit["Avg Stock Price"].values
     model = LinearRegression().fit(X, y)
@@ -233,6 +268,7 @@ def analyze_single_ticker(ticker: str, user_fy_start: int, force_scrape: bool = 
     b1 = round(model.coef_[0], 6)
     b0 = round(model.intercept_, 2)
     eq = f"Price = {b0} + {b1} × {profit_label.split()[0]}"
+    next_fy = merged_profit.index[-1] + 1
 
     return {
         "ticker": ticker,
@@ -248,7 +284,7 @@ def analyze_single_ticker(ticker: str, user_fy_start: int, force_scrape: bool = 
         "merged_sales": merged_sales,
         "eq": eq,
         "latest_profit": latest_profit,
-        "next_fy": merged_profit.index[-1] + 1,
+        "next_fy": next_fy,
         "data_years": f"{common_years_profit.min()}–{common_years_profit.max()}"
     }
 
@@ -259,7 +295,10 @@ st.sidebar.markdown("<h2 style='color: #1f77b4;'>Input Mode</h2>", unsafe_allow_
 input_mode = st.sidebar.radio("Choose:", ["Single Ticker", "Multi-Ticker", "Upload CSV"])
 
 fy_start = st.sidebar.number_input(
-    "Start FY (Apr–Mar)", min_value=2000, max_value=datetime.date.today().year, value=2015
+    "Start FY (Apr–Mar)",
+    min_value=2000,
+    max_value=datetime.date.today().year,
+    value=2013,  # Default to 2013 for full data
 )
 
 tickers = []
@@ -268,24 +307,35 @@ if input_mode == "Single Ticker":
     ticker_input = st.sidebar.text_input("Enter Ticker", "SKFINDIA").strip().upper()
     tickers = [ticker_input] if ticker_input else []
 elif input_mode == "Multi-Ticker":
-    ticker_input = st.sidebar.text_area("Enter Tickers", "SKFINDIA,ITC,RELIANCE", height=100).strip().upper()
+    ticker_input = st.sidebar.text_area(
+        "Enter Tickers (comma or newline)", "SKFINDIA,ITC,RELIANCE", height=100
+    ).strip().upper()
     tickers = [t.strip() for t in re.split(r'[, \n]+', ticker_input) if t.strip()]
 elif input_mode == "Upload CSV":
-    uploaded_file = st.sidebar.file_uploader("Upload CSV with 'Symbol'", type="csv")
+    uploaded_file = st.sidebar.file_uploader("Upload CSV with 'Symbol' column", type="csv")
     if uploaded_file:
         try:
             df_upload = pd.read_csv(uploaded_file)
             if "Symbol" in df_upload.columns:
-                tickers = df_upload["Symbol"].astype(str).str.upper().str.strip().dropna().unique().tolist()
+                tickers = (
+                    df_upload["Symbol"]
+                    .astype(str)
+                    .str.upper()
+                    .str.strip()
+                    .dropna()
+                    .unique()
+                    .tolist()
+                )
                 st.sidebar.success(f"Loaded {len(tickers)} tickers")
             else:
                 st.sidebar.error("CSV must have 'Symbol' column.")
         except Exception as e:
             st.sidebar.error(f"Error: {e}")
 
-force_scrape = st.sidebar.checkbox("Re-scrape P&L data", value=False)
+# Force Re-Scrape Button
+force_scrape = st.sidebar.checkbox("Re-scrape P&L data (ignore cache)", value=False)
 if st.sidebar.button("Re-Scrape All P&L Data", type="secondary"):
-    with st.spinner("Clearing cache..."):
+    with st.spinner("Deleting cache..."):
         for f in os.listdir(DATA_DIR):
             os.remove(os.path.join(DATA_DIR, f))
     st.success("Cache cleared! Next run will re-scrape.")
@@ -302,8 +352,9 @@ if st.sidebar.button("Analyze All", type="primary"):
     progress = st.progress(0)
     results = []
     for i, t in enumerate(tickers):
-        res = analyze_single_ticker(t, fy_start, force_scrape)
-        results.append(res)
+        with st.spinner(f"Analyzing {t}..."):
+            res = analyze_single_ticker(t, fy_start, force_scrape)
+            results.append(res)
         progress.progress((i + 1) / len(tickers))
     progress.empty()
 
@@ -323,33 +374,47 @@ if "summary_df" in st.session_state:
     df = st.session_state.summary_df
 
     st.markdown("## Batch Summary")
-    display_df = df[["ticker", "current_price", "forecasted_price", "gain_pct", "r2", "data_years"]].copy()
-    display_df = display_df.round({"current_price": 2, "forecasted_price": 2, "gain_pct": 1, "r2": 3})
+    display_df = df[
+        ["ticker", "current_price", "forecasted_price", "gain_pct", "r2", "years_count", "data_years"]
+    ].copy()
+    display_df = display_df.round(
+        {"current_price": 2, "forecasted_price": 2, "gain_pct": 1, "r2": 3}
+    )
     st.dataframe(
-        display_df.style.format({
-            "current_price": "₹{:.2f}",
-            "forecasted_price": "₹{:.2f}",
-            "gain_pct": "{:+.1f}%"
-        }),
+        display_df.style.format(
+            {
+                "current_price": "₹{:.2f}",
+                "forecasted_price": "₹{:.2f}",
+                "gain_pct": "{:+.1f}%",
+            }
+        ),
         use_container_width=True,
     )
 
     high_gainers = df[df["gain_pct"] > 20].sort_values("gain_pct", ascending=False)
     if not high_gainers.empty:
         st.markdown("## Top Gainers (>20% Upside)")
-        hg = high_gainers[["ticker", "current_price", "forecasted_price", "gain_pct", "r2", "data_years"]].round(2)
+        hg = high_gainers[
+            ["ticker", "current_price", "forecasted_price", "gain_pct", "r2", "data_years"]
+        ].round(2)
         st.dataframe(
-            hg.style.format({
-                "current_price": "₹{:.2f}",
-                "forecasted_price": "₹{:.2f}",
-                "gain_pct": "{:+.1f}%"
-            }),
+            hg.style.format(
+                {
+                    "current_price": "₹{:.2f}",
+                    "forecasted_price": "₹{:.2f}",
+                    "gain_pct": "{:+.1f}%",
+                }
+            ),
             use_container_width=True,
         )
 
     st.markdown("## View Full Analysis")
     valid_tickers = sorted(df["ticker"].tolist())
-    selected = st.selectbox("Select ticker", options=[""] + valid_tickers, index=0)
+    selected = st.selectbox(
+        "Select a ticker for detailed charts & forecast",
+        options=[""] + valid_tickers,
+        index=0,
+    )
 
     if selected and selected in st.session_state.analysis_results:
         res = st.session_state.analysis_results[selected]
@@ -358,63 +423,94 @@ if "summary_df" in st.session_state:
         col1, col2 = st.columns(2)
         with col1:
             st.metric("Current Price", f"₹{res['current_price']:,.2f}")
-            st.metric("Forecasted Price", f"₹{res['forecasted_price']:,.2f}", f"{res['gain_pct']:+.1f}%")
+            st.metric(
+                "Forecasted Price",
+                f"₹{res['forecasted_price']:,.2f}",
+                f"{res['gain_pct']:+.1f}%",
+            )
         with col2:
-            st.metric("R² (Fit)", f"{res['r2']:.3f}")
+            st.metric("R² (Model Fit)", f"{res['r2']:.3f}")
             st.caption(res["eq"])
 
         # Data Years
-        st.caption(f"**Data Used:** {res['data_years']} ({res['years_count']} years)")
+        st.info(f"**Data Range:** {res['data_years']} ({res['years_count']} years)")
 
-        # Profit Chart
-        chart_df_p = res["merged_profit"][[f"{res['profit_label']} (Cr)", "Avg Stock Price"]].reset_index()
+        # Profit vs Price Chart
+        chart_df_p = res["merged_profit"][
+            [f"{res['profit_label']} (Cr)", "Avg Stock Price"]
+        ].reset_index()
         chart_df_p.columns = ["Year", "Profit", "Price"]
         chart_long_p = chart_df_p.melt("Year", var_name="Metric", value_name="Value")
-        base_p = alt.Chart(chart_long_p).encode(x=alt.X("Year:O", title="FY"))
-        line_profit = base_p.mark_line(color="#1f77b4", strokeWidth=3).transform_filter(alt.datum.Metric == "Profit").encode(y=alt.Y("Value:Q", title=f"{res['profit_label']} (Cr)"))
-        line_price = base_p.mark_line(color="#ff7f0e", strokeWidth=3).transform_filter(alt.datum.Metric == "Price").encode(y=alt.Y("Value:Q", title="Avg Price"))
-        chart_p = alt.layer(line_profit, line_price).resolve_scale(y="independent").properties(width=700, height=400)
+        base_p = alt.Chart(chart_long_p).encode(x=alt.X("Year:O", title="FY (Apr–Mar)"))
+        line_profit = base_p.mark_line(color="#1f77b4", strokeWidth=3).transform_filter(
+            alt.datum.Metric == "Profit"
+        ).encode(y=alt.Y("Value:Q", title=f"{res['profit_label']} (Cr)"))
+        line_price = base_p.mark_line(color="#ff7f0e", strokeWidth=3).transform_filter(
+            alt.datum.Metric == "Price"
+        ).encode(y=alt.Y("Value:Q", title="Avg Price"))
+        chart_p = alt.layer(line_profit, line_price).resolve_scale(y="independent").properties(
+            width=700, height=400
+        )
         st.altair_chart(chart_p, use_container_width=True)
 
-        # Sales Chart
         if not res["merged_sales"].empty:
             chart_df_s = res["merged_sales"].iloc[:, [0, 1]].reset_index()
             chart_df_s.columns = ["Year", "Sales", "Price"]
             chart_long_s = chart_df_s.melt("Year", var_name="Metric", value_name="Value")
             base_s = alt.Chart(chart_long_s).encode(x=alt.X("Year:O"))
-            line_sales = base_s.mark_line(color="#2ca02c", strokeWidth=3).transform_filter(alt.datum.Metric == "Sales").encode(y=alt.Y("Value:Q", title="Sales (Cr)"))
-            line_price_s = base_s.mark_line(color="#ff7f0e", strokeWidth=3).transform_filter(alt.datum.Metric == "Price").encode(y=alt.Y("Value:Q", title="Avg Price"))
-            chart_s = alt.layer(line_sales, line_price_s).resolve_scale(y="independent").properties(width=700, height=400)
+            line_sales = base_s.mark_line(color="#2ca02c", strokeWidth=3).transform_filter(
+                alt.datum.Metric == "Sales"
+            ).encode(y=alt.Y("Value:Q", title="Sales (Cr)"))
+            line_price_s = base_s.mark_line(color="#ff7f0e", strokeWidth=3).transform_filter(
+                alt.datum.Metric == "Price"
+            ).encode(y=alt.Y("Value:Q", title="Avg Price"))
+            chart_s = alt.layer(line_sales, line_price_s).resolve_scale(y="independent").properties(
+                width=700, height=400
+            )
             st.altair_chart(chart_s, use_container_width=True)
 
-        # Valuation Insight
         ratio_col = f"Price/{res['profit_label'].split()[0]}"
         if ratio_col in res["merged_profit"].columns:
             avg_ratio = res["merged_profit"][ratio_col].mean()
             latest_ratio = res["merged_profit"][ratio_col].iloc[-1]
             change = ((latest_ratio - avg_ratio) / avg_ratio) * 100
-            status = "Overvalued" if change > 20 else "Undervalued" if change < -20 else "Fairly Valued"
-            st.markdown(f"### Valuation Insight")
-            col1, col2, col3 = st.columns(3)
-            with col1:
-                st.markdown(f"**Avg Ratio**<br>`{avg_ratio:.4f}`", unsafe_allow_html=True)
-            with col2:
-                st.markdown(f"**Latest**<br>`{latest_ratio:.4f}`", unsafe_allow_html=True)
-            with col3:
-                st.markdown(f"**Change**<br>**{change:+.1f}%** → **{status}**", unsafe_allow_html=True)
+            status = (
+                "Overvalued"
+                if change > 20
+                else "Undervalued"
+                if change < -20
+                else "Fairly Valued"
+            )
+            st.markdown(
+                f"### Valuation Insight\n**Avg Ratio**: `{avg_ratio:.4f}` | **Latest**: `{latest_ratio:.4f}` → **{change:+.1f}%** → **{status}**"
+            )
 
-        # Download
         combined = res["merged_profit"].copy()
         if not res["merged_sales"].empty:
-            combined = combined.join(res["merged_sales"].drop(columns="Avg Stock Price", errors="ignore"), how="left")
+            combined = combined.join(
+                res["merged_sales"].drop(columns="Avg Stock Price", errors="ignore"), how="left"
+            )
         csv = combined.to_csv().encode()
-        st.download_button("Download Full Data", data=csv, file_name=f"{selected}_full.csv", mime="text/csv")
+        st.download_button(
+            "Download Full Data",
+            data=csv,
+            file_name=f"{selected}_analysis.csv",
+            mime="text/csv",
+        )
 
-    # Export All
     export_df = df.copy()
-    export_df["profit_data"] = export_df["merged_profit"].apply(lambda x: x.to_csv(index=True) if not x.empty else "")
-    export_df["sales_data"] = export_df["merged_sales"].apply(lambda x: x.to_csv(index=True) if not x.empty else "")
+    export_df["profit_data"] = export_df["merged_profit"].apply(
+        lambda x: x.to_csv(index=True) if not x.empty else ""
+    )
+    export_df["sales_data"] = export_df["merged_sales"].apply(
+        lambda x: x.to_csv(index=True) if not x.empty else ""
+    )
     csv_all = export_df.drop(columns=["merged_profit", "merged_sales"]).to_csv(index=False)
-    st.download_button("Download All Results", data=csv_all, file_name=f"batch_{datetime.date.today()}.csv", mime="text/csv")
+    st.download_button(
+        "Download All Results",
+        data=csv_all,
+        file_name=f"analysis_batch_{datetime.date.today()}.csv",
+        mime="text/csv",
+    )
 
-st.markdown("<div class='footer'>P&L cached in <code>data/</code> • Re-scrape with button • Full data from 2013+ used</div>", unsafe_allow_html=True)
+st.caption(f"Data cached in `{DATA_DIR}/` • Re-scrape with button above")

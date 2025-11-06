@@ -1,3 +1,8 @@
 streamlit>=1.38.0
 pandas>=2.2.2
 yfinance>=0.2.43
+requests
+beautifulsoup4
+scikit-learn
+altair
+numpy
