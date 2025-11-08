@@ -115,8 +115,8 @@ if uploaded_sir and uploaded_officer:
         total_elector_col = 'Total Elector'
         dist_pct_col = 'Total EFs Distributed Percentage %'
         dig_pct_col = 'Total EFs Digitized Percentage %'
-        daily_target_col = 'Daily Target'
-        behind_target_col = 'Behind Target'
+        daily_target_col = 'dqy y{; izfrfnu'
+        behind_target_col = 'vkfnukad rd y{; ls de'
 
         for c in [dist_pct_col, dig_pct_col]:
             if c not in officer_df.columns:
