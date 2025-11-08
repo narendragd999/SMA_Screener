@@ -6,3 +6,4 @@ beautifulsoup4
 scikit-learn
 altair
 numpy
+plotly
