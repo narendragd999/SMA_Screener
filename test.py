@@ -226,7 +226,7 @@ if uploaded_sir and uploaded_officer:
             st.plotly_chart(fig1, use_container_width=True)
 
             # Weak Officers
-            weaker_officers = plot_df[plot_df['Risk Score'] == 'High Risk (Red)'].nsmallest(20, dist_pct_col)
+            weaker_officers = plot_df[plot_df['Risk Score'] == 'High Risk (Red)'].nsmallest(50, dist_pct_col)
             if not weaker_officers.empty:
                 weaker_officers = weaker_officers[[officer_name_col, part_col, dist_pct_col,
                                                    'Total EFs Distributed', daily_target_col, behind_target_col]].copy()
