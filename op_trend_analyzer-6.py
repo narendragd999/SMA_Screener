@@ -435,7 +435,7 @@ fy_start = st.sidebar.number_input(
     "Start FY (Apr–Mar)",
     min_value=2000,
     max_value=datetime.date.today().year,
-    value=2015,
+    value=2014,
 )
 
 tickers = []
