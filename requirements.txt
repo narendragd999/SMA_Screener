@@ -8,3 +8,4 @@ altair
 numpy
 plotly
 openpyxl
+playwright
