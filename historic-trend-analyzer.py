@@ -2,15 +2,14 @@ import streamlit as st
 import pandas as pd
 import yfinance as yf
 import datetime
-import requests
-from bs4 import BeautifulSoup
 import re
 import difflib
 import numpy as np
 import altair as alt
 from sklearn.linear_model import LinearRegression
 import os
-from pathlib import Path
+from bs4 import BeautifulSoup
+from playwright.sync_api import sync_playwright
 
 # ───────────────────────────────────────────────
 # CONFIG & FOLDER SETUP
@@ -48,6 +47,8 @@ ticker_to_symbol = dict(zip(nse_df["display"], nse_df["symbol"]))
 # DARK MODE & STYLING
 # ───────────────────────────────────────────────
 dark_mode = st.sidebar.checkbox("Dark Mode", value=False)
+theme = "dark" if dark_mode else "light"
+
 st.markdown(f"""
 <style>
     .main {{ padding: 2rem; background-color: {'#0e1117' if dark_mode else '#f8f9fa'}; color: {'#fafafa' if dark_mode else '#212529'}; }}
@@ -56,7 +57,7 @@ st.markdown(f"""
     .subtitle {{ font-size: 1.9rem; text-align: center; color: {'#aaa' if dark_mode else '#666'}; margin-bottom: 2rem; }}
     .card {{ background-color: {'#1e1e2e' if dark_mode else 'white'}; padding: 1.5rem; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); margin-bottom: 1.5rem; border: 1px solid {'#333' if dark_mode else '#e0e0e0'}; }}
     .metric-value {{ font-size: 2.8rem !important; font-weight: 700; color: #1f77b4; }}
-    .section-title {{ font-size: 2.5rem !important; font-weight: 600; color: #1f77b4; margin: 2rem 0 1rem 0; padding-bottom: 0.5rem; border-bottom: 2px solid #1f77b4; }}
+    .section-title {{ font-size: 3rem !important; font-weight: 600; color: #1f77b4; margin: 2rem 0 1rem 0; padding-bottom: 0.5rem; border-bottom: 2px solid #1f77b4; }}
     .stButton > button {{ background-color: #1f77b4; color: white; border-radius: 8px; padding: 0.6rem 1.2rem; font-weight: 500; border: none; }}
     .stButton > button:hover {{ background-color: #155a8a; }}
     .stDownloadButton > button {{ background-color: #2ca02c; color: white; }}
@@ -66,61 +67,148 @@ st.markdown(f"""
 
 st.set_page_config(page_title="OP & Sales Analyzer", layout="wide")
 st.markdown("<h1 class='title'>OP & Sales vs Stock Price Analyzer</h1>", unsafe_allow_html=True)
-st.markdown("<p class='subtitle'><strong style='color: #2ca02c;'>Now with Historical Valuation + Sales Model!</strong></p>", unsafe_allow_html=True)
+st.markdown("<p class='subtitle'><strong style='color: #2ca02c;'>P&L saved locally — no re-scrape!</strong></p>", unsafe_allow_html=True)
 
 # ───────────────────────────────────────────────
-# SCRAPING & CACHING
+# PLAYWRIGHT SCRAPING
 # ───────────────────────────────────────────────
+@st.cache_data(ttl=60*60*24)
+def _playwright_page_source(url: str, debug: bool = False) -> str | None:
+    with sync_playwright() as p:
+        browser = p.chromium.launch(headless=True)
+        context = browser.new_context(
+            user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36",
+            viewport={"width": 1920, "height": 1080}
+        )
+        page = context.new_page()
+        try:
+            page.goto(url, wait_until="networkidle", timeout=30000)
+            page.wait_for_selector("section#profit-loss, div#profit-loss, table.data-table", timeout=20000)
+            html = page.content()
+            if debug:
+                st.success(f"Fetched: {url}")
+            return html
+        except Exception as e:
+            if debug:
+                st.error(f"Playwright error: {e}")
+            return None
+        finally:
+            browser.close()
+
 def scrape_screener_data(ticker: str, debug: bool = False) -> pd.DataFrame | None:
     ticker = ticker.strip().upper()
-    headers = {"User-Agent": "Mozilla/5.0"}
-    urls = [f"https://www.screener.in/company/{ticker}/consolidated/", f"https://www.screener.in/company/{ticker}/"]
+    urls = [
+        f"https://www.screener.in/company/{ticker}/consolidated/",
+        f"https://www.screener.in/company/{ticker}/"
+    ]
     for url in urls:
-        try:
-            r = requests.get(url, headers=headers, timeout=15)
-            if r.status_code != 200: continue
-            soup = BeautifulSoup(r.text, "html.parser")
-            section = soup.find("section", {"id": "profit-loss"})
-            if not section:
-                h2 = soup.find("h2", string=re.compile(r"Profit\s*&?\s*L[oss]?", re.I))
-                section = h2.find_parent() if h2 else None
-            table = section.find("table", class_="data-table") if section else None
-            if not table: continue
-            df = parse_table(table)
-            if df is not None and not df.empty: return df
-        except: continue
+        html = _playwright_page_source(url, debug)
+        if not html:
+            continue
+        soup = BeautifulSoup(html, "html.parser")
+        container = soup.find("section", {"id": "profit-loss"}) or soup.find("div", {"id": "profit-loss"})
+        if not container:
+            h2 = soup.find("h2", string=re.compile(r"Profit\s*&?\s*L[oss]?", re.I))
+            if h2:
+                container = h2.find_next("table")
+        if not container:
+            continue
+        table = container.find("table", class_="data-table") or soup.find("table", class_="data-table")
+        if not table:
+            continue
+        df = parse_table(table)
+        if df is not None and not df.empty:
+            return df
     return None
 
 def parse_table(table) -> pd.DataFrame | None:
     try:
-        headers = [th.get_text(strip=True) for th in table.find("thead").find_all("th")]
-        if len(headers) < 2: return None
-        if not headers[0]: headers[0] = "Metric"
+        thead = table.find("thead")
+        if not thead:
+            return None
+        headers = [th.get_text(strip=True) for th in thead.find_all("th")]
+        if len(headers) < 2:
+            return None
+        if not headers[0]:
+            headers[0] = "Metric"
         rows = []
-        for tr in table.find("tbody").find_all("tr"):
+        tbody = table.find("tbody")
+        if not tbody:
+            return None
+        for tr in tbody.find_all("tr"):
             cells = [td.get_text(strip=True) for td in tr.find_all("td")]
-            if len(cells) == len(headers): rows.append(cells)
-        if not rows: return None
+            if len(cells) == len(headers):
+                rows.append(cells)
+        if not rows:
+            return None
         df = pd.DataFrame(rows, columns=headers)
         df.set_index("Metric", inplace=True)
         return df
-    except: return None
+    except Exception as e:
+        if st.session_state.get("debug_mode", False):
+            st.error(f"Parse error: {e}")
+        return None
 
 def clean_numeric(s: pd.Series) -> pd.Series:
-    return (s.astype(str).str.replace(",", "", regex=False)
-            .str.replace(r"[^\d.-]", "", regex=True).str.strip()
-            .replace("", "0").pipe(pd.to_numeric, errors="coerce").fillna(0))
+    return (
+        s.astype(str)
+        .str.replace(",", "", regex=False)
+        .str.replace(r"[^\d.-]", "", regex=True)
+        .str.strip()
+        .replace("", "0")
+        .pipe(pd.to_numeric, errors="coerce")
+        .fillna(0)
+    )
 
+# ───────────────────────────────────────────────
+# ROW FINDERS (WITH OTHER INCOME SUPPORT)
+# ───────────────────────────────────────────────
 def find_row(df: pd.DataFrame, name: str) -> tuple[str | None, str]:
     candidates = {
-        "profit": [("Operating Profit", "Operating Profit"), ("EBIT", "Operating Profit"), ("EBITDA", "Operating Profit")],
-        "sales": [("Sales", "Sales"), ("Revenue", "Sales"), ("Net Sales", "Sales")]
+        "profit": [
+            ("Operating Profit", "Operating Profit"),
+            ("OP", "Operating Profit"),
+            ("EBIT", "Operating Profit"),
+            ("EBITDA", "Operating Profit"),
+            ("Financing Profit", "Financing Profit"),
+            ("Interest Income", "Financing Profit"),
+        ],
+        "sales": [
+            ("Sales", "Sales"),
+            ("Revenue", "Sales"),
+            ("Net Sales", "Sales"),
+            ("Total Income", "Sales"),
+            ("Interest Earned", "Interest Earned"),
+        ],
+        "other_income": [
+            ("Other Income", "Other Income"),
+            ("Other Operating Income", "Other Income"),
+            ("Other Inc", "Other Income"),
+        ],
     }
-    for keyword, display in candidates[name]:
+    target = name.lower()
+    search_list = candidates.get(target, [])
+    for keyword, display in search_list:
         for idx in df.index:
             if keyword.lower() in idx.lower():
                 return idx, display
+    idx_lower = [i.lower().strip() for i in df.index]
+    matches = difflib.get_close_matches(target, idx_lower, n=1, cutoff=0.6)
+    if matches:
+        matched_idx = df.index[idx_lower.index(matches[0])]
+        return matched_idx, "Operating Profit" if target == "profit" else "Sales" if target == "sales" else "Other Income"
     return None, "Unknown"
+
+# ───────────────────────────────────────────────
+# BANK DETECTION
+# ───────────────────────────────────────────────
+def is_bank_or_finance(ticker: str) -> bool:
+    ticker = ticker.upper()
+    row = nse_df[nse_df["symbol"] == ticker]
+    if row.empty:
+        return False
+    name = row["company_name"].iloc[0].upper()
+    return any(k in name for k in ["BANK", "FINANCE", "NBFC", "FINANCIAL", "LENDING", "MICROFINANCE"])
 
 # ───────────────────────────────────────────────
 # LOAD OR SCRAPE P&L
@@ -129,27 +217,31 @@ def is_valid_ticker(ticker: str) -> bool:
     return ticker in nse_df["symbol"].values
 
 def get_pl_data(ticker: str, force_scrape: bool = False, debug: bool = False) -> pd.DataFrame | None:
-    if not is_valid_ticker(ticker): return None
+    if not is_valid_ticker(ticker):
+        if debug:
+            st.error(f"Invalid ticker: {ticker}")
+        return None
     file_path = os.path.join(DATA_DIR, f"{ticker}_pl.csv")
     if not force_scrape and os.path.exists(file_path):
         try:
             df = pd.read_csv(file_path, index_col=0)
             st.success(f"Loaded P&L for **{ticker}** from cache")
             return df
-        except: st.warning(f"Cache corrupt. Re-scraping...")
-    with st.spinner(f"Scraping **{ticker}**..."):
-        df = scrape_screener_data(ticker, debug)
+        except:
+            st.warning(f"Corrupt cache for {ticker}. Re-scraping...")
+    with st.spinner(f"Scraping P&L for **{ticker}**..."):
+        df = scrape_screener_data(ticker, debug=debug)
         if df is not None:
             df.to_csv(file_path)
-            st.success(f"Saved to `{file_path}`")
+            st.success(f"Saved P&L for **{ticker}** → `{file_path}`")
         else:
             st.error(f"Failed to scrape **{ticker}**")
     return df
 
 # ───────────────────────────────────────────────
-# CORE ANALYSIS WITH DUAL MODEL & HISTORICAL VALUATION
+# CORE ANALYSIS (WITH OTHER INCOME OPTION)
 # ───────────────────────────────────────────────
-def analyze_single_ticker(ticker: str, fy_start: int, force_scrape: bool = False, debug: bool = False):
+def analyze_single_ticker(ticker: str, fy_start: int, force_scrape: bool = False, debug: bool = False, include_other_income: bool = False):
     ticker = ticker.strip().upper()
     pl_df = get_pl_data(ticker, force_scrape, debug)
     if pl_df is None or pl_df.empty:
@@ -160,26 +252,53 @@ def analyze_single_ticker(ticker: str, fy_start: int, force_scrape: bool = False
         return {"ticker": ticker, "error": "No Profit row"}
     sales_row_idx, sales_label = find_row(pl_df, "sales")
 
+    other_income_row_idx = None
+    other_income_label = None
+    if include_other_income and is_bank_or_finance(ticker):
+        other_income_row_idx, other_income_label = find_row(pl_df, "other_income")
+
     def extract_metric(row_idx):
-        if row_idx is None: return pd.Series()
+        if row_idx is None:
+            return pd.Series()
         series = pl_df.loc[row_idx].iloc[1:]
         raw_cols = pl_df.columns[1:]
         years, vals = [], []
         for i, col in enumerate(raw_cols):
             col_str = col.strip()
-            if col_str.upper() == "TTM": continue
+            if col_str.upper() == "TTM":
+                continue
             m = re.search(r"\d{4}", col_str)
             if m:
                 yr = int(m.group())
                 if 2000 <= yr <= 2100:
                     years.append(yr)
                     vals.append(series.iloc[i])
-        if not years: return pd.Series()
+                    continue
+            try:
+                yr = int(col_str)
+                if 2000 <= yr <= 2100:
+                    years.append(yr)
+                    vals.append(series.iloc[i])
+            except:
+                continue
+        if not years:
+            return pd.Series()
         clean = clean_numeric(pd.Series(vals, index=years))
         return clean[clean != 0].dropna()
 
     profit_clean = extract_metric(profit_row_idx)
+    other_income_clean = extract_metric(other_income_row_idx) if other_income_row_idx else pd.Series()
     sales_clean = extract_metric(sales_row_idx) if sales_row_idx else pd.Series()
+
+    # COMBINE OP + OTHER INCOME
+    if include_other_income and not other_income_clean.empty and is_bank_or_finance(ticker):
+        common_years = profit_clean.index.intersection(other_income_clean.index)
+        if len(common_years) >= 2:
+            profit_clean = profit_clean.loc[common_years] + other_income_clean.loc[common_years]
+            profit_label = f"{profit_label} + {other_income_label}"
+        else:
+            st.warning(f"Not enough overlapping years for Other Income in {ticker}")
+
     if profit_clean.empty:
         return {"ticker": ticker, "error": "No Profit data"}
 
@@ -198,103 +317,74 @@ def analyze_single_ticker(ticker: str, fy_start: int, force_scrape: bool = False
     avg_price = price_df.groupby("FY_Year")["Close"].mean().round(2)
     current_price = round(float(price_df["Close"].iloc[-1]), 2) if len(price_df) > 0 else 0.0
 
-    # PROFIT MODEL
-    common_years = profit_clean.index.intersection(avg_price.index)
-    if len(common_years) < 2:
+    common_years_profit = profit_clean.index.intersection(avg_price.index)
+    if len(common_years_profit) < 2:
         return {"ticker": ticker, "error": "Need >=2 years"}
-    profit_clean = profit_clean.loc[common_years]
-    avg_price_profit = avg_price.loc[common_years]
-    profit_1d = np.array(profit_clean).flatten()
-    price_1d = np.array(avg_price_profit).flatten()
-    ratio_profit_1d = np.round(price_1d / profit_1d, 4)
-    merged_profit = pd.DataFrame(
-        {f"{profit_label} (Cr)": profit_1d, "Avg Stock Price": price_1d, f"Price/{profit_label.split()[0]}": ratio_profit_1d},
-        index=common_years.astype(int)
-    ).sort_index()
+    profit_clean = profit_clean.loc[common_years_profit]
+    avg_price_profit = avg_price.loc[common_years_profit]
 
-    X_op = merged_profit[f"{profit_label} (Cr)"].values.reshape(-1, 1)
-    y = merged_profit["Avg Stock Price"].values
-    model_op = LinearRegression().fit(X_op, y)
-    latest_profit = float(merged_profit[f"{profit_label} (Cr)"].iloc[-1])
-    pred_price_op = round(float(model_op.predict([[latest_profit]])[0]), 2)
-    gain_pct = round(((pred_price_op - current_price) / current_price) * 100, 2) if current_price > 0 else 0.0
-    r2_op = round(model_op.score(X_op, y), 3)
-    b1_op = round(model_op.coef_[0], 6)
-    b0_op = round(model_op.intercept_, 2)
-    eq_op = f"Price = {b0_op} + {b1_op} × {profit_label.split()[0]}"
-
-    # SALES MODEL
     has_sales = False
     merged_sales = pd.DataFrame()
-    model_sales = None
-    r2_sales = None
-    eq_sales = None
-    pred_price_sales = None
     if not sales_clean.empty:
         common_years_sales = sales_clean.index.intersection(avg_price.index)
         if len(common_years_sales) >= 2:
             sales_clean = sales_clean.loc[common_years_sales]
             avg_price_sales = avg_price.loc[common_years_sales]
-            sales_1d = np.array(sales_clean).flatten()
-            price_sales_1d = np.array(avg_price_sales).flatten()
-            ratio_sales_1d = np.round(price_sales_1d / sales_1d, 4)
-            merged_sales = pd.DataFrame(
-                {f"{sales_label} (Cr)": sales_1d, "Avg Stock Price": price_sales_1d, f"Price/{sales_label.split()[0]}": ratio_sales_1d},
-                index=common_years_sales.astype(int)
-            ).sort_index()
-            X_sales = merged_sales[f"{sales_label} (Cr)"].values.reshape(-1, 1)
-            model_sales = LinearRegression().fit(X_sales, y)
-            latest_sales = float(merged_sales[f"{sales_label} (Cr)"].iloc[-1])
-            pred_price_sales = round(float(model_sales.predict([[latest_sales]])[0]), 2)
-            r2_sales = round(model_sales.score(X_sales, y), 3)
-            b1_sales = round(model_sales.coef_[0], 6)
-            b0_sales = round(model_sales.intercept_, 2)
-            eq_sales = f"Price = {b0_sales} + {b1_sales} × {sales_label.split()[0]}"
             has_sales = True
 
-    # HISTORICAL VALUATION (OP)
-    historical_op = {}
-    for yr in merged_profit.index:
-        op_val = merged_profit.loc[yr, f"{profit_label} (Cr)"]
-        fair = round(float(model_op.predict([[op_val]])[0]), 2)
-        actual = merged_profit.loc[yr, "Avg Stock Price"]
-        misprice = round(((actual - fair) / fair) * 100, 1)
-        status = "Overvalued" if misprice > 20 else "Undervalued" if misprice < -20 else "Fair"
-        historical_op[yr] = {"OP": op_val, "Fair": fair, "Actual": actual, "Misprice": misprice, "Status": status}
+    profit_1d = np.array(profit_clean).flatten()
+    price_1d = np.array(avg_price_profit).flatten()
+    ratio_profit_1d = np.round(price_1d / profit_1d, 4)
+    merged_profit = pd.DataFrame(
+        {
+            f"{profit_label} (Cr)": profit_1d,
+            "Avg Stock Price": price_1d,
+            f"Price/{profit_label.split()[0]}": ratio_profit_1d,
+        },
+        index=common_years_profit.astype(int),
+    ).sort_index()
 
-    # HISTORICAL VALUATION (SALES)
-    historical_sales = {}
     if has_sales:
-        for yr in merged_sales.index:
-            sales_val = merged_sales.loc[yr, f"{sales_label} (Cr)"]
-            fair = round(float(model_sales.predict([[sales_val]])[0]), 2)
-            actual = merged_sales.loc[yr, "Avg Stock Price"]
-            misprice = round(((actual - fair) / fair) * 100, 1)
-            status = "Overvalued" if misprice > 20 else "Undervalued" if misprice < -20 else "Fair"
-            historical_sales[yr] = {"Sales": sales_val, "Fair": fair, "Actual": actual, "Misprice": misprice, "Status": status}
+        sales_1d = np.array(sales_clean).flatten()
+        price_sales_1d = np.array(avg_price_sales).flatten()
+        ratio_sales_1d = np.round(price_sales_1d / sales_1d, 4)
+        merged_sales = pd.DataFrame(
+            {
+                f"{sales_label} (Cr)": sales_1d,
+                "Avg Stock Price": price_sales_1d,
+                f"Price/{sales_label.split()[0]}": ratio_sales_1d,
+            },
+            index=common_years_sales.astype(int),
+        ).sort_index()
+
+    X = merged_profit[f"{profit_label} (Cr)"].values.reshape(-1, 1)
+    y = merged_profit["Avg Stock Price"].values
+    model = LinearRegression().fit(X, y)
+    latest_profit = float(merged_profit[f"{profit_label} (Cr)"].iloc[-1])
+    pred_price = round(float(model.predict([[latest_profit]])[0]), 2)
+    gain_pct = round(((pred_price - current_price) / current_price) * 100, 2) if current_price > 0 else 0.0
+    r2 = round(model.score(X, y), 3)
+    b1 = round(model.coef_[0], 6)
+    b0 = round(model.intercept_, 2)
+    eq = f"Price = {b0} + {b1} × {profit_label.split(' ')[0]}"
+    next_fy = merged_profit.index[-1] + 1
 
     return {
         "ticker": ticker,
         "profit_label": profit_label,
-        "sales_label": sales_label,
         "current_price": current_price,
-        "forecasted_price": pred_price_op,
+        "forecasted_price": pred_price,
         "gain_pct": gain_pct,
-        "r2": r2_op,
+        "r2": r2,
         "avg_ratio": round(merged_profit[f"Price/{profit_label.split()[0]}"].mean(), 4),
         "latest_ratio": round(merged_profit[f"Price/{profit_label.split()[0]}"].iloc[-1], 4),
-        "years_count": len(common_years),
+        "years_count": len(common_years_profit),
         "merged_profit": merged_profit,
         "merged_sales": merged_sales,
-        "eq": eq_op,
-        "model_op": model_op,
-        "historical_op": historical_op,
-        "has_sales": has_sales,
-        "model_sales": model_sales,
-        "eq_sales": eq_sales,
-        "r2_sales": r2_sales,
-        "pred_price_sales": pred_price_sales,
-        "historical_sales": historical_sales
+        "eq": eq,
+        "latest_profit": latest_profit,
+        "next_fy": next_fy,
+        "include_other_income": include_other_income,
     }
 
 # ───────────────────────────────────────────────
@@ -302,34 +392,53 @@ def analyze_single_ticker(ticker: str, fy_start: int, force_scrape: bool = False
 # ───────────────────────────────────────────────
 st.sidebar.markdown("<h2 style='color: #1f77b4;'>Input Mode</h2>", unsafe_allow_html=True)
 input_mode = st.sidebar.radio("Choose:", ["Single Ticker", "Multi-Ticker", "Upload CSV"])
-debug_mode = st.sidebar.checkbox("Debug Mode", value=False)
+debug_mode = st.sidebar.checkbox("Debug Mode (Show scraping details)", value=False)
 st.session_state.debug_mode = debug_mode
-fy_start = st.sidebar.number_input("Start FY", min_value=2000, max_value=datetime.date.today().year, value=2014)
+fy_start = st.sidebar.number_input("Start FY (Apr–Mar)", min_value=2000, max_value=datetime.date.today().year, value=2014)
 
 tickers = []
+include_other_income_global = False
+
 if input_mode == "Single Ticker":
-    search = st.sidebar.text_input("Search ticker", placeholder="e.g. VOLTAMP").strip().upper()
+    search = st.sidebar.text_input("Search ticker", placeholder="e.g. ICICIBANK, HDFCBANK").strip().upper()
     if search:
         matches = [opt for opt in ticker_options if search in opt.upper()][:20]
-        selected_display = st.sidebar.selectbox("Select", options=[""] + matches, format_func=lambda x: x if x else "Type to search")
+        selected_display = st.sidebar.selectbox("Select a ticker", options=[""] + matches, format_func=lambda x: x if x else "Type to search")
     else:
         selected_display = ""
     ticker_input = ticker_to_symbol.get(selected_display, "").strip()
     tickers = [ticker_input] if ticker_input else []
+
+    # Show Other Income option only if it's a bank
+    if tickers and is_bank_or_finance(tickers[0]):
+        include_other_income_global = st.sidebar.checkbox("Include Other Income in OP (Banks/NBFC)", value=True)
+        st.sidebar.caption("For banks: OP = Operating Profit + Other Income")
+
 elif input_mode == "Multi-Ticker":
-    ticker_input = st.sidebar.text_area("Enter Tickers", "VOLTAMP,ITC", height=100).strip().upper()
+    ticker_input = st.sidebar.text_area("Enter Tickers (comma or newline)", "ICICIBANK,AXISBANK,HDFCBANK", height=100).strip().upper()
     tickers = [t.strip() for t in re.split(r'[, \n]+', ticker_input) if t.strip()]
+    # For multi-ticker, let user decide globally
+    include_other_income_global = st.sidebar.checkbox("Include Other Income in OP for Banks", value=True)
+
 elif input_mode == "Upload CSV":
     uploaded_file = st.sidebar.file_uploader("Upload CSV with 'Symbol' column", type="csv")
     if uploaded_file:
-        df_upload = pd.read_csv(uploaded_file)
-        if "Symbol" in df_upload.columns:
-            tickers = df_upload["Symbol"].astype(str).str.upper().str.strip().dropna().unique().tolist()
-            st.sidebar.success(f"Loaded {len(tickers)} tickers")
+        try:
+            df_upload = pd.read_csv(uploaded_file)
+            if "Symbol" in df_upload.columns:
+                tickers = df_upload["Symbol"].astype(str).str.upper().str.strip().dropna().unique().tolist()
+                st.sidebar.success(f"Loaded {len(tickers)} tickers")
+            else:
+                st.sidebar.error("CSV must have 'Symbol' column.")
+        except Exception as e:
+            st.sidebar.error(f"Error: {e}")
+    include_other_income_global = st.sidebar.checkbox("Include Other Income in OP for Banks", value=True)
 
-force_scrape = st.sidebar.checkbox("Re-scrape P&L data", value=False)
-if st.sidebar.button("Re-Scrape All", type="secondary"):
-    for f in os.listdir(DATA_DIR): os.remove(os.path.join(DATA_DIR, f))
+force_scrape = st.sidebar.checkbox("Re-scrape P&L data (ignore cache)", value=False)
+if st.sidebar.button("Re-Scrape All P&L Data", type="secondary"):
+    with st.spinner("Deleting cache..."):
+        for f in os.listdir(DATA_DIR):
+            os.remove(os.path.join(DATA_DIR, f))
     st.success("Cache cleared!")
     st.rerun()
 
@@ -343,15 +452,16 @@ if st.sidebar.button("Analyze All", type="primary"):
     progress = st.progress(0)
     results = []
     for i, t in enumerate(tickers):
+        include_other = include_other_income_global and is_bank_or_finance(t)
         with st.spinner(f"Analyzing {t}..."):
-            res = analyze_single_ticker(t, fy_start, force_scrape, debug_mode)
+            res = analyze_single_ticker(t, fy_start, force_scrape, debug=debug_mode, include_other_income=include_other)
             results.append(res)
         progress.progress((i + 1) / len(tickers))
     progress.empty()
 
     valid_results = [r for r in results if "error" not in r]
     if not valid_results:
-        st.error("No valid data.")
+        st.error("No valid data found.")
         st.stop()
 
     st.session_state.analysis_results = {r["ticker"]: r for r in valid_results}
@@ -366,7 +476,10 @@ if "summary_df" in st.session_state:
     st.markdown("## Batch Summary")
     display_df = df[["ticker", "current_price", "forecasted_price", "gain_pct", "r2", "years_count"]].copy()
     display_df = display_df.round({"current_price": 2, "forecasted_price": 2, "gain_pct": 1, "r2": 3})
-    st.dataframe(display_df.style.format({"current_price": "Rs.{:.2f}", "forecasted_price": "Rs.{:.2f}", "gain_pct": "{:+.1f}%"}), use_container_width=True)
+    st.dataframe(
+        display_df.style.format({"current_price": "Rs.{:.2f}", "forecasted_price": "Rs.{:.2f}", "gain_pct": "{:+.1f}%"}),
+        use_container_width=True,
+    )
 
     high_gainers = df[df["gain_pct"] > 20].sort_values("gain_pct", ascending=False)
     if not high_gainers.empty:
@@ -376,7 +489,7 @@ if "summary_df" in st.session_state:
 
     st.markdown("## View Full Analysis")
     valid_tickers = sorted(df["ticker"].tolist())
-    selected = st.selectbox("Select ticker", options=[""] + valid_tickers, index=0)
+    selected = st.selectbox("Select a ticker for detailed charts & forecast", options=[""] + valid_tickers, index=0)
 
     if selected and selected in st.session_state.analysis_results:
         res = st.session_state.analysis_results[selected]
@@ -384,71 +497,54 @@ if "summary_df" in st.session_state:
         col1, col2 = st.columns(2)
         with col1:
             st.metric("Current Price", f"Rs.{res['current_price']:,.2f}")
-            st.metric("Forecasted Price (OP)", f"Rs.{res['forecasted_price']:,.2f}", f"{res['gain_pct']:+.1f}%")
+            st.metric("Forecasted Price", f"Rs.{res['forecasted_price']:,.2f}", f"{res['gain_pct']:+.1f}%")
         with col2:
-            st.metric("R² (OP Model)", f"{res['r2']:.3f}")
+            st.metric("R² (Model Fit)", f"{res['r2']:.3f}")
             st.caption(res["eq"])
+            if res.get("include_other_income"):
+                st.caption("**OP includes Other Income**")
+
+        # Charts (same as before)
+        chart_df_p = res["merged_profit"][[f"{res['profit_label']} (Cr)", "Avg Stock Price"]].reset_index()
+        chart_df_p.columns = ["Year", "Profit", "Price"]
+        chart_long_p = chart_df_p.melt("Year", var_name="Metric", value_name="Value")
+        base_p = alt.Chart(chart_long_p).encode(x=alt.X("Year:O", title="FY"))
+        line_profit = base_p.mark_line(color="#1f77b4", strokeWidth=3).transform_filter(alt.datum.Metric == "Profit").encode(y=alt.Y("Value:Q", title=f"{res['profit_label']} (Cr)"))
+        line_price = base_p.mark_line(color="#ff7f0e", strokeWidth=3).transform_filter(alt.datum.Metric == "Price").encode(y=alt.Y("Value:Q", title="Avg Price"))
+        chart_p = alt.layer(line_profit, line_price).resolve_scale(y="independent").properties(width=700, height=400)
+        st.altair_chart(chart_p, use_container_width=True)
+
+        if not res["merged_sales"].empty:
+            chart_df_s = res["merged_sales"].iloc[:, [0, 1]].reset_index()
+            chart_df_s.columns = ["Year", "Sales", "Price"]
+            chart_long_s = chart_df_s.melt("Year", var_name="Metric", value_name="Value")
+            base_s = alt.Chart(chart_long_s).encode(x=alt.X("Year:O"))
+            line_sales = base_s.mark_line(color="#2ca02c", strokeWidth=3).transform_filter(alt.datum.Metric == "Sales").encode(y=alt.Y("Value:Q", title="Sales (Cr)"))
+            line_price_s = base_s.mark_line(color="#ff7f0e", strokeWidth=3).transform_filter(alt.datum.Metric == "Price").encode(y=alt.Y("Value:Q", title="Avg Price"))
+            chart_s = alt.layer(line_sales, line_price_s).resolve_scale(y="independent").properties(width=700, height=400)
+            st.altair_chart(chart_s, use_container_width=True)
 
         # Valuation Insight
         ratio_col = f"Price/{res['profit_label'].split()[0]}"
         if ratio_col in res["merged_profit"].columns:
-            avg_ratio = res["avg_ratio"]
-            latest_ratio = res["latest_ratio"]
+            avg_ratio = res["merged_profit"][ratio_col].mean()
+            latest_ratio = res["merged_profit"][ratio_col].iloc[-1]
             change = ((latest_ratio - avg_ratio) / avg_ratio) * 100
             status = "Overvalued" if change > 20 else "Undervalued" if change < -20 else "Fairly Valued"
             st.markdown(f"### Valuation Insight\n**Avg Ratio**: `{avg_ratio:.4f}` | **Latest**: `{latest_ratio:.4f}` → **{change:+.1f}%** → **{status}**")
 
-        # Historical Valuation
-        st.markdown("### Historical Valuation Checker")
-        tab_op, tab_sales = st.tabs(["Operating Profit Model", "Sales Model"])
-
-        with tab_op:
-            years = sorted(res["historical_op"].keys())
-            selected_year = st.slider("Select FY Year (OP)", min_value=years[0], max_value=years[-1], value=years[-1], key="op_year")
-            hf = res["historical_op"][selected_year]
-            colA, colB, colC = st.columns(3)
-            with colA: st.metric(f"FY {selected_year} OP", f"Rs.{hf['OP']:,.0f} Cr")
-            with colB: st.metric("Fair Price", f"Rs.{hf['Fair']:,.0f}")
-            with colC: st.metric("Actual Price", f"Rs.{hf['Actual']:,.0f}", f"{hf['Misprice']:+.1f}%")
-            st.markdown(f"**Status**: **{hf['Status']}**")
-
-        if res["has_sales"]:
-            with tab_sales:
-                years_s = sorted(res["historical_sales"].keys())
-                selected_year_s = st.slider("Select FY Year (Sales)", min_value=years_s[0], max_value=years_s[-1], value=years_s[-1], key="sales_year")
-                hf_s = res["historical_sales"][selected_year_s]
-                colA, colB, colC = st.columns(3)
-                with colA: st.metric(f"FY {selected_year_s} Sales", f"Rs.{hf_s['Sales']:,.0f} Cr")
-                with colB: st.metric("Fair Price", f"Rs.{hf_s['Fair']:,.0f}")
-                with colC: st.metric("Actual Price", f"Rs.{hf_s['Actual']:,.0f}", f"{hf_s['Misprice']:+.1f}%")
-                st.markdown(f"**Status**: **{hf_s['Status']}**")
-                st.caption(res["eq_sales"])
-
-        # Charts
-        chart_df_p = res["merged_profit"].iloc[:, :2].reset_index()
-        chart_df_p.columns = ["Year", "Profit", "Price"]
-        chart_long_p = chart_df_p.melt("Year", var_name="Metric", value_name="Value")
-        base_p = alt.Chart(chart_long_p).encode(x=alt.X("Year:O", title="FY"))
-        line_p = base_p.mark_line(color="#1f77b4", strokeWidth=3).transform_filter(alt.datum.Metric == "Profit").encode(y=alt.Y("Value:Q", title=f"{res['profit_label']} (Cr)"))
-        line_price = base_p.mark_line(color="#ff7f0e", strokeWidth=3).transform_filter(alt.datum.Metric == "Price").encode(y=alt.Y("Value:Q", title="Avg Price"))
-        chart_p = alt.layer(line_p, line_price).resolve_scale(y="independent").properties(width=700, height=400)
-        st.altair_chart(chart_p, use_container_width=True)
-
-        if res["has_sales"]:
-            chart_df_s = res["merged_sales"].iloc[:, :2].reset_index()
-            chart_df_s.columns = ["Year", "Sales", "Price"]
-            chart_long_s = chart_df_s.melt("Year", var_name="Metric", value_name="Value")
-            base_s = alt.Chart(chart_long_s).encode(x=alt.X("Year:O"))
-            line_s = base_s.mark_line(color="#2ca02c", strokeWidth=3).transform_filter(alt.datum.Metric == "Sales").encode(y=alt.Y("Value:Q", title="Sales (Cr)"))
-            line_price_s = base_s.mark_line(color="#ff7f0e", strokeWidth=3).transform_filter(alt.datum.Metric == "Price").encode(y=alt.Y("Value:Q", title="Avg Price"))
-            chart_s = alt.layer(line_s, line_price_s).resolve_scale(y="independent").properties(width=700, height=400)
-            st.altair_chart(chart_s, use_container_width=True)
-
         # Download
         combined = res["merged_profit"].copy()
-        if res["has_sales"]:
+        if not res["merged_sales"].empty:
             combined = combined.join(res["merged_sales"].drop(columns="Avg Stock Price", errors="ignore"), how="left")
         csv = combined.to_csv().encode()
-        st.download_button("Download Full Data", data=csv, file_name=f"{selected}_full.csv", mime="text/csv")
+        st.download_button("Download Full Data", data=csv, file_name=f"{selected}_analysis.csv", mime="text/csv")
 
-st.caption(f"Data cached in `{DATA_DIR}/` • Use tabs to switch between OP & Sales historical valuation!")
+    # Export All
+    export_df = df.copy()
+    export_df["profit_data"] = export_df["merged_profit"].apply(lambda x: x.to_csv(index=True) if not x.empty else "")
+    export_df["sales_data"] = export_df["merged_sales"].apply(lambda x: x.to_csv(index=True) if not x.empty else "")
+    csv_all = export_df.drop(columns=["merged_profit", "merged_sales"]).to_csv(index=False)
+    st.download_button("Download All Results", data=csv_all, file_name=f"analysis_batch_{datetime.date.today()}.csv", mime="text/csv")
+
+st.caption(f"Data cached in `{DATA_DIR}/` • Fixed for **ICICIBANK**, **AXISBANK**, **Other Income** support!")
