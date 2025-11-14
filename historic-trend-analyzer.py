@@ -302,6 +302,7 @@ def analyze_single_ticker(ticker: str, fy_start: int, force_scrape: bool = False
     if profit_clean.empty:
         return {"ticker": ticker, "error": "No Profit data"}
 
+    # ── PRICE DATA ───────────────────────────────────────
     try:
         start_date = f"{fy_start}-04-01"
         end_date = f"{datetime.date.today().year + 1}-03-31"
@@ -317,6 +318,7 @@ def analyze_single_ticker(ticker: str, fy_start: int, force_scrape: bool = False
     avg_price = price_df.groupby("FY_Year")["Close"].mean().round(2)
     current_price = round(float(price_df["Close"].iloc[-1]), 2) if len(price_df) > 0 else 0.0
 
+    # ── ALIGN WITH FUNDAMENTALS ───────────────────────
     common_years_profit = profit_clean.index.intersection(avg_price.index)
     if len(common_years_profit) < 2:
         return {"ticker": ticker, "error": "Need >=2 years"}
@@ -332,6 +334,7 @@ def analyze_single_ticker(ticker: str, fy_start: int, force_scrape: bool = False
             avg_price_sales = avg_price.loc[common_years_sales]
             has_sales = True
 
+    # ── OP MODEL ───────────────────────────────────────
     profit_1d = np.array(profit_clean).flatten()
     price_1d = np.array(avg_price_profit).flatten()
     ratio_profit_1d = np.round(price_1d / profit_1d, 4)
@@ -344,6 +347,22 @@ def analyze_single_ticker(ticker: str, fy_start: int, force_scrape: bool = False
         index=common_years_profit.astype(int),
     ).sort_index()
 
+    X = merged_profit[f"{profit_label} (Cr)"].values.reshape(-1, 1)
+    y = merged_profit["Avg Stock Price"].values
+    model = LinearRegression().fit(X, y)
+    latest_profit = float(merged_profit[f"{profit_label} (Cr)"].iloc[-1])
+    pred_price = round(float(model.predict([[latest_profit]])[0]), 2)
+    gain_pct = round(((pred_price - current_price) / current_price) * 100, 2) if current_price > 0 else 0.0
+    r2 = round(model.score(X, y), 3)
+    b1 = round(model.coef_[0], 6)
+    b0 = round(model.intercept_, 2)
+    eq = f"Price = {b0} + {b1} × {profit_label.split(' ')[0]}"
+
+    # ── SALES MODEL (optional) ───────────────────────
+    model_sales = None
+    r2_sales = None
+    eq_sales = None
+    pred_price_sales = None
     if has_sales:
         sales_1d = np.array(sales_clean).flatten()
         price_sales_1d = np.array(avg_price_sales).flatten()
@@ -357,21 +376,41 @@ def analyze_single_ticker(ticker: str, fy_start: int, force_scrape: bool = False
             index=common_years_sales.astype(int),
         ).sort_index()
 
-    X = merged_profit[f"{profit_label} (Cr)"].values.reshape(-1, 1)
-    y = merged_profit["Avg Stock Price"].values
-    model = LinearRegression().fit(X, y)
-    latest_profit = float(merged_profit[f"{profit_label} (Cr)"].iloc[-1])
-    pred_price = round(float(model.predict([[latest_profit]])[0]), 2)
-    gain_pct = round(((pred_price - current_price) / current_price) * 100, 2) if current_price > 0 else 0.0
-    r2 = round(model.score(X, y), 3)
-    b1 = round(model.coef_[0], 6)
-    b0 = round(model.intercept_, 2)
-    eq = f"Price = {b0} + {b1} × {profit_label.split(' ')[0]}"
-    next_fy = merged_profit.index[-1] + 1
+        X_sales = merged_sales[f"{sales_label} (Cr)"].values.reshape(-1, 1)
+        y_sales = merged_sales["Avg Stock Price"].values
+        model_sales = LinearRegression().fit(X_sales, y_sales)
+        latest_sales = float(merged_sales[f"{sales_label} (Cr)"].iloc[-1])
+        pred_price_sales = round(float(model_sales.predict([[latest_sales]])[0]), 2)
+        r2_sales = round(model_sales.score(X_sales, y_sales), 3)
+        b1_sales = round(model_sales.coef_[0], 6)
+        b0_sales = round(model_sales.intercept_, 2)
+        eq_sales = f"Price = {b0_sales} + {b1_sales} × {sales_label.split()[0]}"
+
+    # ── HISTORICAL VALUATION (OP) ───────────────────────
+    historical_op = {}
+    for yr in merged_profit.index:
+        op_val = merged_profit.loc[yr, f"{profit_label} (Cr)"]
+        fair = round(float(model.predict([[op_val]])[0]), 2)
+        actual = merged_profit.loc[yr, "Avg Stock Price"]
+        misprice = round(((actual - fair) / fair) * 100, 1)
+        status = "Overvalued" if misprice > 20 else "Undervalued" if misprice < -20 else "Fair"
+        historical_op[yr] = {"OP": op_val, "Fair": fair, "Actual": actual, "Misprice": misprice, "Status": status}
+
+    # ── HISTORICAL VALUATION (SALES) ───────────────────
+    historical_sales = {}
+    if has_sales:
+        for yr in merged_sales.index:
+            sales_val = merged_sales.loc[yr, f"{sales_label} (Cr)"]
+            fair = round(float(model_sales.predict([[sales_val]])[0]), 2)
+            actual = merged_sales.loc[yr, "Avg Stock Price"]
+            misprice = round(((actual - fair) / fair) * 100, 1)
+            status = "Overvalued" if misprice > 20 else "Undervalued" if misprice < -20 else "Fair"
+            historical_sales[yr] = {"Sales": sales_val, "Fair": fair, "Actual": actual, "Misprice": misprice, "Status": status}
 
     return {
         "ticker": ticker,
         "profit_label": profit_label,
+        "sales_label": sales_label if has_sales else None,
         "current_price": current_price,
         "forecasted_price": pred_price,
         "gain_pct": gain_pct,
@@ -383,8 +422,16 @@ def analyze_single_ticker(ticker: str, fy_start: int, force_scrape: bool = False
         "merged_sales": merged_sales,
         "eq": eq,
         "latest_profit": latest_profit,
-        "next_fy": next_fy,
         "include_other_income": include_other_income,
+        "has_sales": has_sales,
+        "model_sales": model_sales,
+        "eq_sales": eq_sales,
+        "r2_sales": r2_sales,
+        "pred_price_sales": pred_price_sales,
+        "historical_op": historical_op,
+        "historical_sales": historical_sales,
+        # keep the full price series for the historic chart
+        "price_series": price_df["Close"].reset_index()
     }
 
 # ───────────────────────────────────────────────
@@ -409,7 +456,6 @@ if input_mode == "Single Ticker":
     ticker_input = ticker_to_symbol.get(selected_display, "").strip()
     tickers = [ticker_input] if ticker_input else []
 
-    # Show Other Income option only if it's a bank
     if tickers and is_bank_or_finance(tickers[0]):
         include_other_income_global = st.sidebar.checkbox("Include Other Income in OP (Banks/NBFC)", value=True)
         st.sidebar.caption("For banks: OP = Operating Profit + Other Income")
@@ -417,7 +463,6 @@ if input_mode == "Single Ticker":
 elif input_mode == "Multi-Ticker":
     ticker_input = st.sidebar.text_area("Enter Tickers (comma or newline)", "ICICIBANK,AXISBANK,HDFCBANK", height=100).strip().upper()
     tickers = [t.strip() for t in re.split(r'[, \n]+', ticker_input) if t.strip()]
-    # For multi-ticker, let user decide globally
     include_other_income_global = st.sidebar.checkbox("Include Other Income in OP for Banks", value=True)
 
 elif input_mode == "Upload CSV":
@@ -504,7 +549,7 @@ if "summary_df" in st.session_state:
             if res.get("include_other_income"):
                 st.caption("**OP includes Other Income**")
 
-        # Charts (same as before)
+        # ── FUNDAMENTAL VS PRICE CHARTS ───────────────────────
         chart_df_p = res["merged_profit"][[f"{res['profit_label']} (Cr)", "Avg Stock Price"]].reset_index()
         chart_df_p.columns = ["Year", "Profit", "Price"]
         chart_long_p = chart_df_p.melt("Year", var_name="Metric", value_name="Value")
@@ -524,7 +569,7 @@ if "summary_df" in st.session_state:
             chart_s = alt.layer(line_sales, line_price_s).resolve_scale(y="independent").properties(width=700, height=400)
             st.altair_chart(chart_s, use_container_width=True)
 
-        # Valuation Insight
+        # ── VALUATION INSIGHT ─────────────────────────────────
         ratio_col = f"Price/{res['profit_label'].split()[0]}"
         if ratio_col in res["merged_profit"].columns:
             avg_ratio = res["merged_profit"][ratio_col].mean()
@@ -533,14 +578,76 @@ if "summary_df" in st.session_state:
             status = "Overvalued" if change > 20 else "Undervalued" if change < -20 else "Fairly Valued"
             st.markdown(f"### Valuation Insight\n**Avg Ratio**: `{avg_ratio:.4f}` | **Latest**: `{latest_ratio:.4f}` → **{change:+.1f}%** → **{status}**")
 
-        # Download
+        # ── HISTORICAL VALUATION CHECKER ───────────────────────
+        st.markdown("### Historical Valuation Checker")
+        tab_op, tab_sales = st.tabs(["Operating Profit Model", "Sales Model"])
+
+        # ── OP TAB ───────────────────────────────────────
+        with tab_op:
+            years = sorted(res["historical_op"].keys())
+            selected_year = st.slider("Select FY Year (OP)", min_value=years[0], max_value=years[-1], value=years[-1], key="op_year")
+            hf = res["historical_op"][selected_year]
+            colA, colB, colC = st.columns(3)
+            with colA: st.metric(f"FY {selected_year} {res['profit_label'].split()[0]}", f"Rs.{hf['OP']:,.0f} Cr")
+            with colB: st.metric("Fair Price", f"Rs.{hf['Fair']:,.0f}")
+            with colC: st.metric("Actual Price", f"Rs.{hf['Actual']:,.0f}", f"{hf['Misprice']:+.1f}%")
+            st.markdown(f"**Status**: **{hf['Status']}**")
+
+            # ── **FULL HISTORIC PRICE CHART** (TradingView-style) ───────
+            price_series = res["price_series"]
+            price_series.columns = ["Date", "Close"]
+            price_series["Date"] = pd.to_datetime(price_series["Date"])
+
+            chart_price = alt.Chart(price_series).mark_line(
+                color="#ff7f0e", strokeWidth=2
+            ).encode(
+                x=alt.X("Date:T", title="Date"),
+                y=alt.Y("Close:Q", title="Close Price (Rs.)"),
+                tooltip=["Date:T", "Close:Q"]
+            ).properties(
+                width="container",
+                height=350,
+                title="Historical Stock Price (Daily Close)"
+            ).interactive()
+
+            st.altair_chart(chart_price, use_container_width=True)
+
+        # ── SALES TAB (if available) ───────────────────────
+        if res["has_sales"]:
+            with tab_sales:
+                years_s = sorted(res["historical_sales"].keys())
+                selected_year_s = st.slider("Select FY Year (Sales)", min_value=years_s[0], max_value=years_s[-1], value=years_s[-1], key="sales_year")
+                hf_s = res["historical_sales"][selected_year_s]
+                colA, colB, colC = st.columns(3)
+                with colA: st.metric(f"FY {selected_year_s} {res['sales_label'].split()[0]}", f"Rs.{hf_s['Sales']:,.0f} Cr")
+                with colB: st.metric("Fair Price", f"Rs.{hf_s['Fair']:,.0f}")
+                with colC: st.metric("Actual Price", f"Rs.{hf_s['Actual']:,.0f}", f"{hf_s['Misprice']:+.1f}%")
+                st.markdown(f"**Status**: **{hf_s['Status']}**")
+                st.caption(res["eq_sales"])
+
+                # Same historic price chart for sales tab
+                chart_price_s = alt.Chart(price_series).mark_line(
+                    color="#ff7f0e", strokeWidth=2
+                ).encode(
+                    x=alt.X("Date:T", title="Date"),
+                    y=alt.Y("Close:Q", title="Close Price (Rs.)"),
+                    tooltip=["Date:T", "Close:Q"]
+                ).properties(
+                    width="container",
+                    height=350,
+                    title="Historical Stock Price (Daily Close)"
+                ).interactive()
+
+                st.altair_chart(chart_price_s, use_container_width=True)
+
+        # ── DOWNLOAD ───────────────────────────────────────
         combined = res["merged_profit"].copy()
         if not res["merged_sales"].empty:
             combined = combined.join(res["merged_sales"].drop(columns="Avg Stock Price", errors="ignore"), how="left")
         csv = combined.to_csv().encode()
         st.download_button("Download Full Data", data=csv, file_name=f"{selected}_analysis.csv", mime="text/csv")
 
-    # Export All
+    # ── EXPORT ALL ───────────────────────────────────────
     export_df = df.copy()
     export_df["profit_data"] = export_df["merged_profit"].apply(lambda x: x.to_csv(index=True) if not x.empty else "")
     export_df["sales_data"] = export_df["merged_sales"].apply(lambda x: x.to_csv(index=True) if not x.empty else "")
