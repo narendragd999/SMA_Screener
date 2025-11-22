@@ -772,7 +772,8 @@ with container:
 
         if uploaded_sector_file:
             try:
-                tmp = pd.read_csv(uploaded_sector_file)
+                #tmp = pd.read_csv(uploaded_sector_file)
+                tmp = pd.read_csv(uploaded_sector_file, encoding="latin1")
                 tmp.columns = [c.strip().title() for c in tmp.columns]
                 if {"Symbol", "Sector"}.issubset(tmp.columns):
                     tmp["Symbol"] = tmp["Symbol"].astype(str).str.upper().str.strip()
