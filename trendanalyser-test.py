@@ -1216,4 +1216,4 @@ if "summary_df" in st.session_state:
     else:
         st.info("No analysis results available to export.")
 
-st.caption(f"Data cached in `{DATA_DIR}/` • Upload Sector CSV with `Symbol, Sector` to enable sector-based batch runs.")
+#st.caption(f"Data cached in `{DATA_DIR}/` • Upload Sector CSV with `Symbol, Sector` to enable sector-based batch runs.")
