@@ -1,0 +1,33 @@
+Sector,Company,Ticker,S.No.,CMP
+                    Rs.,All time high
+                    Rs.,Quarter growing perc
+                    %,DFLH
+                    %,Mar Cap
+                    Rs.Cr.,NP Qtr
+                    Rs.Cr.,P/E,10Yrs PE,Debt / Eq,ROCE
+                    %,ROE
+                    %,CMP / BV,NP PY Qtr
+                    Rs.Cr.,NP Ann
+                    Rs.Cr.,Up
+                    %
+"Transport Infrastructure Companies","Adani Ports","ADANIPORTS","Adani Ports","1509.40","1621.40","29.33","6.91","326051.37","3120.20","27.17","23.04","0.85","13.80","18.76","4.86","2412.54","11061.26","49.33"
+"Transport Infrastructure Companies","GMR Airports","GMRAIRPORT","GMR Airports","103.51","122.57","-108.18","15.55","109295.96","35.06","","40.73","","6.92","","","-428.77","-816.90","52.78"
+"Transport Infrastructure Companies","JSW Infrast","JSWINFRA","JSW Infrast","269.25","361.00","-1.32","25.42","56542.54","368.81","35.67","45.48","0.52","13.92","16.24","5.54","373.73","1521.48","23.45"
+"Transport Infrastructure Companies","National High","NHIT","National High","149.00","151.00","50.46","1.32","28859.07","112.09","68.71","57.36","1.01","3.38","1.79","1.34","74.50","325.01","15.64"
+"Transport Infrastructure Companies","Cube Highways","CUBEINVIT","Cube Highways","137.55","145.95","-234.52","5.76","18487.68","40.22","596.57","189.53","1.68","3.91","-0.68","1.74","-29.90","-35.72","15.14"
+"Transport Infrastructure Companies","Vertis Infra.","VERTIS","Vertis Infra.","109.00","110.10","21.05","1.00","16458.83","188.20","27.41","22.35","1.60","9.51","8.64","2.35","155.47","544.84","11.00"
+"Transport Infrastructure Companies","Maple Inf. Trust","543925","Maple Inf. Trust","145.60","145.60","-48.92","0.00","10022.49","-19.34","","","1.59","3.87","-3.90","1.76","-37.86","-120.59","1.11"
+"Transport Infrastructure Companies","Guj Pipavav Port","GPPL","Guj Pipavav Port","182.29","262.00","73.02","30.42","8812.63","158.31","20.50","22.40","0.02","24.89","18.96","4.05","91.50","399.16","50.28"
+"Transport Infrastructure Companies","Indus Inf. Trust","INDUSINVIT","Indus Inf. Trust","118.83","124.50","-43.08","4.55","5263.44","59.38","11.80","11.62","0.46","9.32","9.38","1.09","104.32","481.67","24.81"
+"Transport Infrastructure Companies","IRB InvIT Fund","IRBINVIT","IRB InvIT Fund","60.97","105.00","-3.05","41.93","4822.41","82.74","13.24","11.70","1.75","9.22","8.75","0.94","85.34","355.58","22.16"
+"Transport Infrastructure Companies","Roadstar Infra","ROADSTAR","Roadstar Infra","68.00","80.00","206.13","15.00","3097.24","-146.36","","414.00","0.88","4.83","0.14","0.77","-47.81","-11.12","36.00"
+"Transport Infrastructure Companies","Anantam Highways","ANANTAM","Anantam Highways","104.10","114.00","","8.68","2264.18","-1.59","5.51","","8.70","18.96","177.03","","","410.62","3.89"
+"Transport Infrastructure Companies","BF Utilities","BFUTILITIE","BF Utilities","599.95","2627.94","-284.54","77.17","2259.41","1.79","294.96","268.38","0.06","12.80","10.23","13.12","-0.97","15.99","4.91"
+"Transport Infrastructure Companies","Allcargo Termi","ATL","Allcargo Termi","25.96","77.35","-0.18","66.44","757.67","11.30","23.85","24.81","2.09","11.59","12.98","2.46","11.32","30.23","41.24"
+"Transport Infrastructure Companies","Dreamfolks Servi","DREAMFOLKS","Dreamfolks Servi","113.79","847.00","-30.01","86.57","606.16","11.22","9.38","35.77","0.03","33.70","24.25","1.82","16.03","65.05","14.71"
+"Transport Infrastructure Companies","Highway Infra","HILINFRA","Highway Infra","63.25","134.89","3592.31","53.11","453.63","9.60","15.79","23.83","0.21","19.59","18.83","2.16","0.26","19.66","2.02"
+"Transport Infrastructure Companies","Noida Tollbridg.","NOIDATOLL","Noida Tollbridg.","4.69","85.20","-164.55","94.50","87.33","3.77","11.80","5.50","","-8.55","-14.26","","-5.84","-244.19","82.49"
+"Transport Infrastructure Companies","VMS Industries","533427","VMS Industries","28.18","126.22","-34.72","77.67","68.97","0.47","10.81","22.30","0.25","12.14","8.45","0.71","0.72","6.80","27.68"
+"Transport Infrastructure Companies","Gayatri Highways","GAYAHWS","Gayatri Highways","2.79","10.90","-92.84","74.40","66.86","-3.24","","11.89","","2.97","","","-45.24","1128.96","277.03"
+"Transport Infrastructure Companies","Starlog Enterp.","520155","Starlog Enterp.","39.04","849.90","-114.26","95.41","58.43","-3.45","","7.13","0.01","-2.00","-5.19","0.83","24.20","26.07","21.73"
+"Transport Infrastructure Companies","MEP Infrast.","MEP","MEP Infrast.","2.17","150.00","767.36","98.55","39.92","-604.90","","25.17","0.92","-401.21","","","-69.74","-757.30","90.35"

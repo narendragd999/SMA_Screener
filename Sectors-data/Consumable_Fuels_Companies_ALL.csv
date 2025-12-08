@@ -1,0 +1,17 @@
+Sector,Company,Ticker,S.No.,CMP
+                    Rs.,All time high
+                    Rs.,Quarter growing perc
+                    %,DFLH
+                    %,Mar Cap
+                    Rs.Cr.,NP Qtr
+                    Rs.Cr.,P/E,10Yrs PE,Debt / Eq,ROCE
+                    %,ROE
+                    %,CMP / BV,NP PY Qtr
+                    Rs.Cr.,NP Ann
+                    Rs.Cr.,Up
+                    %
+"Consumable Fuels Companies","Coal India","COALINDIA","Coal India","379.95","544.70","-32.07","30.25","234152.86","4262.64","7.50","7.32","0.13","48.04","38.89","2.22","6274.80","35302.10","8.81"
+"Consumable Fuels Companies","Sandur Manganese","SANDUMA","Sandur Manganese","201.97","237.88","332.08","15.10","9817.86","138.87","16.39","13.78","0.64","20.78","18.64","3.38","32.14","470.61","79.69"
+"Consumable Fuels Companies","Anmol India","ANMOL","Anmol India","13.96","68.00","-93.07","79.47","79.45","0.07","10.23","11.70","1.85","9.81","6.70","0.69","1.01","6.99","8.22"
+"Consumable Fuels Companies","Reetech Intl","543617","Reetech Intl","34.45","96.45","-139.44","64.28","14.56","-0.28","","8.72","0.27","-0.26","-31.26","1.27","0.71","-4.34","62.50"
+"Consumable Fuels Companies","Foundry Fuel","513579","Foundry Fuel","6.98","46.85","25.00","85.10","5.60","-0.05","","3.68","","","","","-0.04","-0.25","44.51"

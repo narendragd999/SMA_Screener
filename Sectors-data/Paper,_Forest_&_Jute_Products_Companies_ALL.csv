@@ -1,0 +1,62 @@
+Sector,Company,Ticker,S.No.,CMP
+                    Rs.,All time high
+                    Rs.,Quarter growing perc
+                    %,DFLH
+                    %,Mar Cap
+                    Rs.Cr.,NP Qtr
+                    Rs.Cr.,P/E,10Yrs PE,Debt / Eq,ROCE
+                    %,ROE
+                    %,CMP / BV,NP PY Qtr
+                    Rs.Cr.,NP Ann
+                    Rs.Cr.,Up
+                    %
+"Paper, Forest & Jute Products Companies","A B Real Estate","ABREL","A B Real Estate","1750.30","3141.95","-731.91","44.29","19550.09","-17.82","","53.78","1.45","-0.16","-2.45","5.17","2.82","-157.44","12.01"
+"Paper, Forest & Jute Products Companies","JK Paper","JKPAPER","JK Paper","369.20","639.15","-39.56","42.24","6254.33","77.88","21.02","9.34","0.39","8.63","7.04","1.14","128.85","412.11","33.89"
+"Paper, Forest & Jute Products Companies","West Coast Paper","WSTCSTPAPR","West Coast Paper","411.45","815.00","-88.16","49.52","2717.63","11.91","15.09","7.22","0.13","11.47","9.49","0.77","100.57","335.64","7.67"
+"Paper, Forest & Jute Products Companies","Seshasayee Paper","SESHAPAPER","Seshasayee Paper","238.10","421.85","-21.29","43.56","1501.65","22.41","18.42","9.23","0.04","7.04","5.60","0.74","28.47","109.17","0.70"
+"Paper, Forest & Jute Products Companies","Andhra Paper","ANDHRAPAP","Andhra Paper","66.56","135.00","-148.56","50.70","1323.55","-20.26","64.41","10.48","0.14","4.50","3.07","0.69","41.72","88.91","2.24"
+"Paper, Forest & Jute Products Companies","T N Newsprint","TNPL","T N Newsprint","140.69","499.00","212.74","71.81","973.72","8.10","","8.77","0.90","5.54","-0.14","0.47","2.59","3.72","22.29"
+"Paper, Forest & Jute Products Companies","Pudumjee Paper","PDMJEPAPER","Pudumjee Paper","97.44","232.20","-43.15","58.04","925.19","16.92","10.10","8.92","0.02","22.35","16.74","1.47","29.76","95.76","7.91"
+"Paper, Forest & Jute Products Companies","Kuantum Papers","KUANTUM","Kuantum Papers","92.59","225.85","-80.70","59.00","807.97","5.77","12.45","7.61","0.56","11.36","10.07","0.67","29.89","115.18","0.64"
+"Paper, Forest & Jute Products Companies","N R Agarwal Inds","NRAIL","N R Agarwal Inds","457.60","616.00","-117.63","25.71","778.79","-1.47","32.08","6.60","0.93","5.62","2.35","0.99","8.34","17.65","122.41"
+"Paper, Forest & Jute Products Companies","Gloster Ltd","GLOSTERLTD","Gloster Ltd","637.65","1012.41","-324.93","37.02","697.80","7.67","76.01","11.60","0.70","1.55","-1.31","0.65","-3.41","-13.35","19.95"
+"Paper, Forest & Jute Products Companies","Satia Industries","SATIA","Satia Industries","69.12","164.35","-298.86","57.94","691.20","-24.52","11.09","7.53","0.28","10.30","11.89","0.66","12.33","118.62","7.33"
+"Paper, Forest & Jute Products Companies","Cheviot Company","CHEVIOT","Cheviot Company","1066.40","2055.55","-19.70","48.12","622.98","14.84","11.07","10.10","0.01","10.01","7.75","0.89","18.48","57.74","9.58"
+"Paper, Forest & Jute Products Companies","Emami Paper","EMAMIPAP","Emami Paper","88.80","288.00","-13.31","69.17","537.24","6.58","29.02","20.68","1.39","6.58","4.80","0.92","7.59","26.01","13.85"
+"Paper, Forest & Jute Products Companies","Orient Paper","ORIENTPPR","Orient Paper","24.43","63.79","55.65","61.70","518.37","-30.60","","13.57","0.16","-2.60","-3.08","0.33","-19.66","-54.66","17.40"
+"Paper, Forest & Jute Products Companies","Pakka","PAKKA","Pakka","106.63","399.00","-112.50","73.28","479.28","-2.11","56.79","18.43","0.66","11.21","11.20","1.06","16.88","37.52","0.59"
+"Paper, Forest & Jute Products Companies","Shree Rama News.","RAMANEWS","Shree Rama News.","30.14","58.30","1.49","48.30","444.63","-10.20","","48.08","","1.87","-73.31","","-10.05","-106.29","109.74"
+"Paper, Forest & Jute Products Companies","Genus Paper & Bo","GENUSPAPER","Genus Paper & Bo","13.97","30.30","-1009.52","53.89","359.20","3.82","50.73","19.19","0.85","4.73","0.61","0.69","-0.42","2.93","4.64"
+"Paper, Forest & Jute Products Companies","Ruchira Papers","RUCHIRA","Ruchira Papers","119.21","199.82","-11.71","40.34","355.78","15.60","5.27","7.53","0.38","18.71","15.29","0.71","17.67","67.33","11.72"
+"Paper, Forest & Jute Products Companies","Nikita Greentech Recycling","NIKITA","Nikita Greentech Recycling","134.50","155.00","-37.65","13.23","331.78","6.31","17.27","9.49","1.38","16.56","24.86","1.91","10.12","23.02","74.34"
+"Paper, Forest & Jute Products Companies","Ludlow Jute","526179","Ludlow Jute","307.55","555.00","-295.44","44.59","331.23","6.86","29.39","32.42","0.83","-0.56","-6.34","1.84","-3.51","-10.58","89.67"
+"Paper, Forest & Jute Products Companies","S. V. J. Enterp.","543799","S. V. J. Enterp.","487.00","519.00","-69.44","6.17","271.31","0.11","935.55","100.53","0.30","5.76","3.42","17.07","0.36","0.53","278.55"
+"Paper, Forest & Jute Products Companies","Star Paper Mills","STARPAPER","Star Paper Mills","163.56","318.55","-10.33","48.65","255.32","13.02","6.62","5.34","0.01","7.76","5.91","0.36","14.52","41.14","12.03"
+"Paper, Forest & Jute Products Companies","Shreyans Inds.","SHREYANIND","Shreyans Inds.","178.39","347.20","-75.41","48.62","246.53","2.23","5.24","5.92","0.13","16.33","12.63","0.56","9.07","50.60","8.70"
+"Paper, Forest & Jute Products Companies","Indian Wood Prod","540954","Indian Wood Prod","37.38","100.00","16.33","62.62","239.13","2.28","43.40","49.10","0.22","3.32","1.46","0.66","1.96","5.29","23.37"
+"Paper, Forest & Jute Products Companies","Sh. Ajit Pulp","538795","Sh. Ajit Pulp","239.30","297.25","323.19","19.50","212.86","5.84","11.33","8.67","1.05","7.43","3.96","0.82","1.38","9.42","32.94"
+"Paper, Forest & Jute Products Companies","Aaradhya Dis.","AARADHYA","Aaradhya Dis.","123.10","182.00","68.75","32.36","174.04","6.21","13.61","13.04","0.51","27.19","44.46","2.23","3.68","10.27","26.26"
+"Paper, Forest & Jute Products Companies","Magnum Ventures","MAGNUM","Magnum Ventures","24.42","77.82","-86.32","68.62","167.06","1.20","","10.26","0.39","3.68","1.48","0.24","8.77","9.50","23.90"
+"Paper, Forest & Jute Products Companies","S I Paper Mills","516108","S I Paper Mills","85.80","195.00","-332.23","56.00","160.88","2.81","","10.20","0.80","1.40","-5.19","0.75","-1.21","-9.64","31.80"
+"Paper, Forest & Jute Products Companies","AI Champ.Inds.","532806","AI Champ.Inds.","51.65","229.01","-51.98","77.45","158.84","-5.82","","15.94","","-107.23","-1112.57","","-12.12","-61.03","38.84"
+"Paper, Forest & Jute Products Companies","Sh. Krishna Pap.","500388","Sh. Krishna Pap.","96.00","110.26","170.00","12.93","129.81","0.81","47.20","15.47","0.89","8.72","3.37","3.60","0.30","1.13","223.23"
+"Paper, Forest & Jute Products Companies","Nath Industries","502587","Nath Industries","63.40","125.05","633.33","49.30","120.46","4.40","7.10","14.13","0.32","6.49","3.72","0.46","0.60","9.74","3.93"
+"Paper, Forest & Jute Products Companies","Ganga Papers","531813","Ganga Papers","85.10","191.26","-8.82","55.51","91.81","0.31","60.80","21.76","1.30","6.44","5.19","2.94","0.34","1.55","13.27"
+"Paper, Forest & Jute Products Companies","Three M Paper","544214","Three M Paper","37.65","82.70","-46.48","54.47","72.43","3.04","9.84","7.14","0.68","12.18","12.13","0.68","5.68","9.99","25.04"
+"Paper, Forest & Jute Products Companies","Balkrishna Paper","BALKRISHNA","Balkrishna Paper","20.63","86.17","-42.77","76.06","66.47","-1.78","","14.39","","","","","-3.11","8.19","36.53"
+"Paper, Forest & Jute Products Companies","Malu Paper","MALUPAPER","Malu Paper","36.89","74.95","52.32","50.78","62.93","-5.59","","15.15","","-4.11","-2246.30","","-3.67","-12.13","22.97"
+"Paper, Forest & Jute Products Companies","Perfectpac","526435","Perfectpac","89.80","179.95","17.65","50.10","59.80","1.20","15.86","17.44","0.02","11.93","8.68","1.52","1.02","3.15","10.46"
+"Paper, Forest & Jute Products Companies","Pratik Panels","526490","Pratik Panels","8.28","11.40","760.00","27.37","52.91","0.43","58.14","57.20","0.04","5.43","5.56","7.65","0.05","0.26","55.64"
+"Paper, Forest & Jute Products Companies","Kay Power &Paper","530255","Kay Power &Paper","13.19","50.18","-33.33","73.71","46.09","0.02","42.68","9.85","0.06","2.75","4.19","0.57","0.03","1.12","11.78"
+"Paper, Forest & Jute Products Companies","Mohit Paper Mill","530169","Mohit Paper Mill","31.27","50.01","4.29","37.47","43.78","2.19","6.85","8.58","1.35","11.97","13.61","0.80","2.10","6.50","23.35"
+"Paper, Forest & Jute Products Companies","B J Duplex Board","531647","B J Duplex Board","19.72","19.72","66.67","0.00","37.52","-0.05","","","","","","","-0.03","-0.21","33.79"
+"Paper, Forest & Jute Products Companies","Spinaroo Comm.","544392","Spinaroo Comm.","46.67","83.77","-27.87","44.29","32.64","0.44","25.90","22.05","0.40","18.54","21.33","1.95","0.61","1.44","3.85"
+"Paper, Forest & Jute Products Companies","Shrenik","SHRENIK","Shrenik","0.52","37.67","340.00","98.62","31.82","0.22","198.88","94.38","","","","","0.05","-0.09","30.00"
+"Paper, Forest & Jute Products Companies","Saffron Industri","531436","Saffron Industri","41.31","104.13","-233.33","60.33","29.68","0.24","8.50","5.43","","86.90","","","-0.18","2.81","617.19"
+"Paper, Forest & Jute Products Companies","Astron Paper","ASTRON","Astron Paper","6.19","176.60","-51.51","96.49","28.78","-4.49","","20.47","0.83","-19.37","-41.68","0.32","-9.26","-52.30","5.81"
+"Paper, Forest & Jute Products Companies","Grameva","539120","Grameva","59.61","82.55","612.50","27.79","28.61","-0.57","50.19","51.36","1.10","9.42","6.17","3.44","-0.08","0.49","106.98"
+"Paper, Forest & Jute Products Companies","Vapi Enterprise","502589","Vapi Enterprise","121.00","264.25","34.62","54.21","27.59","0.35","18.03","21.28","0.01","4.97","3.81","0.76","0.26","1.32","27.37"
+"Paper, Forest & Jute Products Companies","Cella Space","532701","Cella Space","13.68","38.00","-99.23","64.00","27.57","0.39","8.41","21.41","0.31","5.99","13.98","0.85","50.49","51.40","50.16"
+"Paper, Forest & Jute Products Companies","Aten Papers","544417","Aten Papers","26.00","90.00","-40.58","71.11","26.78","2.27","4.90","1.18","0.04","43.87","66.54","0.60","3.82","7.01","20.37"
+"Paper, Forest & Jute Products Companies","Sangal Papers","516096","Sangal Papers","185.00","325.00","-80.77","43.08","24.24","0.30","14.26","7.72","0.59","9.85","7.05","0.53","1.56","2.83","22.44"
+"Paper, Forest & Jute Products Companies","Labelkraft Tech.","543830","Labelkraft Tech.","48.75","96.00","24.44","49.22","15.81","0.56","11.71","18.84","0.20","14.06","10.88","1.26","0.45","1.24","2.63"

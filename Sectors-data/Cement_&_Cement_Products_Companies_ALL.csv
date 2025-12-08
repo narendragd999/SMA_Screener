@@ -1,0 +1,55 @@
+Sector,Company,Ticker,S.No.,CMP
+                    Rs.,All time high
+                    Rs.,Quarter growing perc
+                    %,DFLH
+                    %,Mar Cap
+                    Rs.Cr.,NP Qtr
+                    Rs.Cr.,P/E,10Yrs PE,Debt / Eq,ROCE
+                    %,ROE
+                    %,CMP / BV,NP PY Qtr
+                    Rs.Cr.,NP Ann
+                    Rs.Cr.,Up
+                    %
+"Cement & Cement Products Companies","UltraTech Cem.","ULTRACEMCO","UltraTech Cem.","11597.00","13101.80","74.87","11.49","341739.43","1237.98","46.59","39.10","0.35","10.89","9.29","4.74","707.96","6039.64","15.42"
+"Cement & Cement Products Companies","Grasim Inds","GRASIM","Grasim Inds","2747.00","2978.85","52.40","7.78","186938.84","1498.04","43.20","17.60","2.06","7.50","3.95","1.88","982.94","7756.33","20.69"
+"Cement & Cement Products Companies","Ambuja Cements","AMBUJACEM","Ambuja Cements","533.80","706.95","363.74","24.49","131945.94","2302.28","22.96","28.11","0.02","10.50","8.73","2.35","496.46","5158.41","17.32"
+"Cement & Cement Products Companies","Shree Cement","SHREECEM","Shree Cement","26075.00","32508.20","304.25","19.79","94080.55","309.82","54.73","50.13","0.10","6.71","5.29","4.19","76.64","1123.80","5.09"
+"Cement & Cement Products Companies","J K Cements","JKCEMENT","J K Cements","5625.00","7565.50","16.97","25.65","43463.39","159.25","42.00","35.43","1.00","13.99","13.87","6.71","136.15","872.17","33.33"
+"Cement & Cement Products Companies","Dalmia BharatLtd","DALBHARAT","Dalmia BharatLtd","1989.00","2548.40","387.76","21.95","37306.71","239.00","33.52","37.00","0.40","5.58","4.15","2.11","49.00","699.00","24.23"
+"Cement & Cement Products Companies","ACC","ACC","ACC","1798.20","2844.00","460.47","36.77","33767.91","1119.26","10.45","25.52","0.02","17.44","13.23","1.69","199.70","2402.27","1.30"
+"Cement & Cement Products Companies","The Ramco Cement","RAMCOCEM","The Ramco Cement","1011.00","1209.00","202.21","16.38","23889.16","77.88","126.02","29.73","0.62","4.77","1.42","3.16","25.77","269.57","28.27"
+"Cement & Cement Products Companies","JSW Cement","JSWCEMENT","JSW Cement","111.36","162.20","-199.39","31.34","15182.43","75.36","432.79","","0.75","4.64","-4.81","2.51","-75.82","-163.77","4.42"
+"Cement & Cement Products Companies","India Cements","INDIACEM","India Cements","416.20","430.45","-102.60","3.31","12897.92","8.81","","40.44","0.13","-5.49","-8.83","1.28","-338.72","-143.68","74.25"
+"Cement & Cement Products Companies","Nuvoco Vistas","NUVOCO","Nuvoco Vistas","351.15","577.90","-142.77","39.24","12541.54","36.43","45.81","89.98","0.63","3.93","0.24","1.37","-85.17","21.84","22.33"
+"Cement & Cement Products Companies","JK Lakshmi Cem.","JKLAKSHMI","JK Lakshmi Cem.","750.25","1021.20","-361.79","26.53","9313.94","80.63","19.98","23.39","0.72","10.48","8.72","2.51","-30.80","275.95","13.59"
+"Cement & Cement Products Companies","Star Cement","STARCEMENT","Star Cement","222.80","308.95","1153.26","27.88","9005.14","71.06","29.76","18.28","0.21","8.39","6.05","2.99","5.67","168.82","14.93"
+"Cement & Cement Products Companies","Birla Corpn.","BIRLACORPN","Birla Corpn.","1084.50","1802.00","-459.19","39.82","8351.73","90.48","15.84","25.58","0.45","7.08","4.79","1.17","-25.19","295.22","20.25"
+"Cement & Cement Products Companies","Prism Johnson","PRSMJOHNSN","Prism Johnson","132.78","246.10","-101.53","46.05","6683.61","1.59","89.11","60.86","1.16","2.22","-4.00","4.57","-103.67","45.11","26.10"
+"Cement & Cement Products Companies","Heidelberg Cem.","HEIDELBERG","Heidelberg Cem.","176.45","284.95","122.39","38.08","3998.59","24.93","31.04","25.84","0.06","11.41","7.48","3.05","11.21","106.75","0.26"
+"Cement & Cement Products Companies","Orient Cement","ORIENTCEM","Orient Cement","163.47","379.40","2015.95","56.91","3358.65","49.09","10.95","23.09","0.04","8.83","5.12","1.63","2.32","91.25","2.78"
+"Cement & Cement Products Companies","Sagar Cements","SAGCEM","Sagar Cements","206.52","319.00","-22.48","35.26","2699.37","-44.17","","31.86","0.98","-2.19","-10.29","1.60","-56.98","-216.68","33.20"
+"Cement & Cement Products Companies","K C P","KCP","K C P","182.33","281.79","-51.15","35.30","2350.62","48.76","14.99","14.67","0.50","12.99","10.97","1.43","99.82","253.25","9.31"
+"Cement & Cement Products Companies","Mangalam Cement","MANGLMCEM","Mangalam Cement","784.45","1095.65","513.11","28.40","2157.03","20.11","27.98","22.00","0.82","9.87","5.70","2.40","3.28","45.06","22.57"
+"Cement & Cement Products Companies","Sanghi Industrie","SANGHIIND","Sanghi Industrie","61.62","156.20","-40.44","60.55","1591.80","-116.55","","19.76","5.93","-3.91","-46.07","3.79","-195.68","-498.37","22.99"
+"Cement & Cement Products Companies","Sh. Digvijay Cem","SHREDIGCEM","Sh. Digvijay Cem","90.10","123.90","2457.50","27.28","1332.30","10.23","35.48","20.21","0.39","8.73","6.77","3.65","0.40","25.20","47.68"
+"Cement & Cement Products Companies","Deccan Cements","DECCANCE","Deccan Cements","781.45","1183.95","-324.50","34.00","1094.62","9.07","32.99","13.74","1.02","1.53","0.75","1.47","-4.04","7.53","35.90"
+"Cement & Cement Products Companies","Saurashtra Cem.","SAURASHCEM","Saurashtra Cem.","85.11","148.86","-65.07","42.83","946.88","-10.98","32.84","11.42","0.07","1.86","0.23","0.99","-31.43","6.98","15.78"
+"Cement & Cement Products Companies","BIGBLOC Const.","BIGBLOC","BIGBLOC Const.","65.57","148.50","-1757.89","55.85","928.31","-3.15","","48.68","1.51","6.63","8.02","7.09","0.19","3.21","36.32"
+"Cement & Cement Products Companies","NCL Industries","NCLIND","NCL Industries","196.64","310.00","644.91","36.57","889.46","19.74","15.77","12.17","0.29","6.71","3.41","0.99","2.65","25.38","9.73"
+"Cement & Cement Products Companies","Shiva Cement","532323","Shiva Cement","23.19","62.54","-2.62","62.92","684.11","-32.73","","100.43","39.62","-2.97","","16.91","-33.61","-142.48","4.37"
+"Cement & Cement Products Companies","Andhra Cements","ACL","Andhra Cements","73.76","158.75","20.18","53.54","679.86","-41.92","","10.11","12.22","-10.52","-68.44","8.92","-34.88","-152.11","53.19"
+"Cement & Cement Products Companies","Visaka Industrie","VISAKAIND","Visaka Industrie","68.53","178.00","-49.04","61.50","592.13","-8.19","29.03","9.38","0.53","3.61","0.02","0.75","-16.07","0.14","24.58"
+"Cement & Cement Products Companies","Anjani Portland","APCL","Anjani Portland","120.12","499.88","-82.80","75.97","352.85","-4.88","","20.52","2.26","-9.07","-31.85","1.72","-28.38","-81.22","25.13"
+"Cement & Cement Products Companies","Shri Keshav","530977","Shri Keshav","177.95","319.25","-116.51","44.26","311.64","0.69","31164.00","24.81","2.41","5.25","-6.21","3.12","-4.18","-6.17","43.16"
+"Cement & Cement Products Companies","Kesoram Inds.","KESORAMIND","Kesoram Inds.","6.54","20.31","-63.00","67.80","203.20","-25.87","","0.23","0.58","-4.71","2034.33","0.59","-69.92","5565.16","130.28"
+"Cement & Cement Products Companies","Kanoria Energy","539620","Kanoria Energy","15.77","60.20","-94.87","73.80","134.50","0.02","","26.30","1.12","8.15","3.96","1.43","0.39","3.56","4.44"
+"Cement & Cement Products Companies","Kakatiya Cement","KAKATCEM","Kakatiya Cement","134.59","599.00","-1765.22","77.53","104.63","-11.49","","11.87","0.05","-3.11","-6.15","0.55","0.69","-13.31","3.29"
+"Cement & Cement Products Companies","Panyam Cement","500322","Panyam Cement","120.55","263.25","104.52","54.21","96.70","-31.68","","28.71","","-30.06","","","-15.49","-89.19","24.28"
+"Cement & Cement Products Companies","Barak Valley","BVCL","Barak Valley","42.80","77.33","-66.67","44.65","94.84","-0.18","25.70","15.80","0.29","8.95","4.21","0.75","-0.54","5.17","25.66"
+"Cement & Cement Products Companies","Sri Chakra Cem.","518053","Sri Chakra Cem.","64.46","99.29","-68.84","35.08","58.01","-5.01","","","","-69.71","-307.25","","-16.08","-56.83","2048.67"
+"Cement & Cement Products Companies","Keerthi Indus","518011","Keerthi Indus","69.90","265.00","20.13","73.62","56.06","-5.43","","12.14","1.68","-24.53","-44.05","1.70","-4.52","-22.77","12.54"
+"Cement & Cement Products Companies","Sainik Finance","530265","Sainik Finance","42.44","64.00","-42.97","33.69","46.17","0.73","8.03","8.78","2.47","11.76","15.15","1.01","1.28","6.18","28.41"
+"Cement & Cement Products Companies","Hemadri Cements","502133","Hemadri Cements","50.88","157.60","-35.59","67.72","33.94","-1.81","","","","-77.44","-281.44","","-2.81","-27.06","15.64"
+"Cement & Cement Products Companies","Scan Projects","531797","Scan Projects","84.50","170.00","433.33","50.29","24.28","0.16","28.90","29.27","0.01","13.35","9.93","2.82","0.03","0.57","74.01"
+"Cement & Cement Products Companies","Vaishno Cement","526941","Vaishno Cement","6.79","10.15","0.00","33.10","6.08","-0.02","","","","23.08","","","-0.02","0.05","79.16"
+"Cement & Cement Products Companies","Vardhman Concr.","531444","Vardhman Concr.","8.22","43.45","-60.00","81.08","5.88","-0.04","10.14","3.21","","-3.73","","","-0.10","-0.47","18.10"
