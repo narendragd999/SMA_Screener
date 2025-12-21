@@ -4,6 +4,7 @@
 # - Batch processing of tickers
 # - Caching & Requests scraping of Screener P&L tables (fixed for banks like ICICIBANK)
 # - OP vs Price linear model, Sales model, historical valuation
+# - Multiple Regression for banks/NBFC (Price ~ OP + Gross NPA + Book Value + Dividend + NIM)
 # - Distinct chart colors (Profit = purple #6a11cb, Price = blue #3498db)
 # - Fixed NameError by always reading results from st.session_state for exports
 # - NEW: Quarterly & TTM Analysis tab with scraping of Quarterly Results, TTM computation, models, charts, forecasts
@@ -12,6 +13,11 @@
 # - FIX: Quarterly section ID to "quarters"
 # - FIX: Historical TTM uses quarter-end close; charts use Timestamp + thicker lines
 # - UPGRADE: Annual/TTM models use end-period closes for accuracy
+# - FIX: Handle limited price history for recently listed stocks (e.g., KIRLPNU). Show full P&L, but model/chart price only where available. Proxy first close to last pre-listing FY. Add warning.
+# - UPGRADE: Select consolidated/standalone based on more valid profit years
+# - UPGRADE: extract_metric handles 2-digit years
+# - FIX: TZ-aware/naive datetime comparison by localizing dates to UTC
+# - UPGRADE: Extended multi-reg to TTM/Quarterly for banks/NBFCs, using end-of-period finance metrics (e.g., NPA %)
 #
 # Save as: sector_fixed_full.py
 # Run: streamlit run sector_fixed_full.py
@@ -142,50 +148,6 @@ def _requests_html(url: str, debug: bool = False) -> str | None:
             st.error(f"Requests error for {url}: {e}")
     return None
 
-# def scrape_screener_data(ticker: str, debug: bool = False) -> pd.DataFrame | None:
-#     ticker = ticker.strip().upper()
-#     urls = [
-#         f"https://www.screener.in/company/{ticker}/consolidated/",
-#         f"https://www.screener.in/company/{ticker}/"
-#     ]
-#     for url in urls:
-#         html = _requests_html(url, debug)
-#         if not html:
-#             continue
-#         soup = BeautifulSoup(html, "html.parser")
-#         section = soup.find("section", {"id": "profit-loss"})
-#         if not section:
-#             continue
-#         table = section.find("table", class_="data-table")
-#         if not table:
-#             continue
-#         df = parse_table(table)
-#         if df is not None and not df.empty:
-#             return df
-#     return None
-
-# def scrape_quarterly_data(ticker: str, debug: bool = False) -> pd.DataFrame | None:
-#     ticker = ticker.strip().upper()
-#     urls = [
-#         f"https://www.screener.in/company/{ticker}/consolidated/",
-#         f"https://www.screener.in/company/{ticker}/"
-#     ]
-#     for url in urls:
-#         html = _requests_html(url, debug)
-#         if not html:
-#             continue
-#         soup = BeautifulSoup(html, "html.parser")
-#         section = soup.find("section", {"id": "quarters"})
-#         if not section:
-#             continue
-#         table = section.find("table", class_="data-table")
-#         if not table:
-#             continue
-#         df = parse_table(table)
-#         if df is not None and not df.empty:
-#             return df
-#     return None
-
 def scrape_screener_data(ticker: str, debug: bool = False) -> pd.DataFrame | None:
     ticker = ticker.strip().upper()
     urls = [
@@ -206,18 +168,12 @@ def scrape_screener_data(ticker: str, debug: bool = False) -> pd.DataFrame | Non
             continue
         df = parse_table(table)
         if df is not None and not df.empty:
-            # Tag the DF with source for selection
             df.attrs = {'source': 'consolidated' if '/consolidated/' in url else 'standalone'}
             dfs.append(df)
-    
     if not dfs:
         return None
-    
-    # If only one, return it
     if len(dfs) == 1:
         return dfs[0]
-    
-    # If both, select the one with more valid profit years
     profit_candidates = []
     for df in dfs:
         profit_row_idx, _ = find_row(df, "profit")
@@ -225,24 +181,11 @@ def scrape_screener_data(ticker: str, debug: bool = False) -> pd.DataFrame | Non
             profit_series = extract_metric(profit_row_idx, df)
             valid_years = len(profit_series[profit_series != 0])
             profit_candidates.append((df, valid_years, df.attrs['source']))
-    
     if not profit_candidates:
-        return dfs[0]  # Fallback to first
-    
-    # Select the one with max years
+        return dfs[0]
     best_df, max_years, source = max(profit_candidates, key=lambda x: x[1])
     if debug:
         st.info(f"For {ticker}: Selected {source} with {max_years} years")
-    
-    # Special override for COLPAL: prefer standalone if consolidated has <2 years
-    if ticker == "COLPAL" and source == "consolidated" and max_years < 2:
-        for df_c, years_c, src_c in profit_candidates:
-            if src_c == "standalone" and years_c >= 2:
-                best_df = df_c
-                break
-        if debug:
-            st.info(f"COLPAL override: Using standalone with sufficient data")
-    
     return best_df
 
 def scrape_quarterly_data(ticker: str, debug: bool = False) -> pd.DataFrame | None:
@@ -266,11 +209,8 @@ def scrape_quarterly_data(ticker: str, debug: bool = False) -> pd.DataFrame | No
         df = parse_table(table)
         if df is not None and not df.empty:
             dfs.append(df)
-    
     if not dfs:
         return None
-    
-    # Prefer the one with more quarters for profit
     profit_candidates_q = []
     for df in dfs:
         profit_row_idx_q, _ = find_row(df, "profit")
@@ -278,13 +218,10 @@ def scrape_quarterly_data(ticker: str, debug: bool = False) -> pd.DataFrame | No
             profit_q_series = extract_quarterly_metric(profit_row_idx_q, df)
             valid_quarters = len(profit_q_series[profit_q_series != 0])
             profit_candidates_q.append((df, valid_quarters))
-    
     if profit_candidates_q:
         best_df_q, max_quarters_q = max(profit_candidates_q, key=lambda x: x[1])
         return best_df_q
-    
-    return dfs[0]  # Fallback
-
+    return dfs[0] if dfs else None
 
 def parse_table(table) -> pd.DataFrame | None:
     try:
@@ -344,11 +281,40 @@ def find_row(df: pd.DataFrame, name: str) -> tuple[str | None, str]:
             ("Total Income", "Sales"),
             ("Interest Earned", "Interest Earned"),
             ("Income", "Income"),
+            ("Revenue+", "Revenue"),  # Handle + suffix if present
         ],
         "other_income": [
             ("Other Income", "Other Income"),
             ("Other Operating Income", "Other Income"),
             ("Other Inc", "Other Income"),
+            ("Other Income+", "Other Income"),
+        ],
+        "gross_npa": [
+            ("Gross NPA", "Gross NPA"),
+            ("Gross NPAs", "Gross NPA"),
+            ("Gross Non Performing Assets", "Gross NPA"),
+            ("Gross NPA %", "Gross NPA %"),  # Handle % for quarterly
+        ],
+        "net_npa": [
+            ("Net NPA", "Net NPA"),
+            ("Net NPAs", "Net NPA"),
+            ("Net Non Performing Assets", "Net NPA"),
+            ("Net NPA %", "Net NPA %"),
+        ],
+        "book_value": [
+            ("Book Value", "Book Value"),
+            ("BVPS", "Book Value"),
+            ("Book Value per Share", "Book Value"),
+        ],
+        "dividend": [
+            ("Dividend", "Dividend"),
+            ("Dividends", "Dividend"),
+            ("Dividend per Share", "Dividend"),
+        ],
+        "nim": [
+            ("Net Interest Margin", "NIM"),
+            ("NIM", "NIM"),
+            ("Yield on Advances", "Yield on Advances"),
         ],
     }
     target = name.lower()
@@ -407,16 +373,20 @@ def extract_quarterly_metric(row_idx, df) -> pd.Series:
     month_days = {"Mar": 31, "Jun": 30, "Sep": 30, "Dec": 31}
     for col in raw_cols:
         col_str = str(col).strip()
-        m = re.match(r"([A-Za-z]{3})\s+(\d{4})", col_str)
+        m = re.match(r"([A-Za-z]{3})-?(\d{2,4})", col_str)  # Handle Sep-22 format
         if m:
             month_abbr = m.group(1)
-            year = int(m.group(2))
+            yr_str = m.group(2)
+            year = int(yr_str)
+            if len(yr_str) == 2:
+                year += 2000
             if month_abbr in month_num:
                 mon = month_num[month_abbr]
                 day = month_days[month_abbr]
                 try:
                     q_date = datetime.date(year, mon, day)
-                    q_dates.append(pd.to_datetime(q_date))
+                    # FIX: Localize to UTC to match yf tz-aware index
+                    q_dates.append(pd.to_datetime(q_date).tz_localize('UTC'))
                     vals.append(series[col])
                 except ValueError:
                     continue
@@ -431,11 +401,35 @@ def is_bank_or_finance(ticker: str) -> bool:
         row = nse_df[nse_df["symbol"] == ticker]
         if not row.empty:
             name = row["company_name"].iloc[0].upper()
-            return any(k in name for k in ["BANK", "FINANCE", "NBFC", "FINANCIAL", "LENDING", "MICROFINANCE"])
+            return any(k in name for k in ["BANK", "FINANCE", "NBFC", "FINANCIAL", "LENDING", "MICROFINANCE", "PFC", "REC", "POWER FINANCE", "RURAL ELECTRIFICATION", "HOUSING FINANCE", "SAMMAAN"])
     return False
 
 def is_valid_ticker(ticker: str) -> bool:
     return isinstance(ticker, str) and len(ticker) > 0
+
+def scrape_finance_metrics(pl_df: pd.DataFrame, debug: bool = False) -> dict:
+    metrics = {}
+    for metric_name in ["gross_npa", "net_npa", "book_value", "dividend", "nim"]:
+        row_idx, label = find_row(pl_df, metric_name)
+        if row_idx:
+            series = extract_metric(row_idx, pl_df)
+            if not series.empty:
+                metrics[label] = series
+                if debug:
+                    st.info(f"Extracted {label} for {len(series)} years")
+    return metrics
+
+def scrape_quarterly_finance_metrics(qr_df: pd.DataFrame, debug: bool = False) -> dict:
+    metrics = {}
+    for metric_name in ["gross_npa", "net_npa", "book_value", "dividend", "nim"]:
+        row_idx, label = find_row(qr_df, metric_name)
+        if row_idx:
+            series = extract_quarterly_metric(row_idx, qr_df)
+            if not series.empty:
+                metrics[label] = series
+                if debug:
+                    st.info(f"Extracted quarterly {label} for {len(series)} quarters")
+    return metrics
 
 def get_pl_data(ticker: str, force_scrape: bool = False, debug: bool = False) -> pd.DataFrame | None:
     ticker = ticker.strip().upper()
@@ -483,6 +477,131 @@ def get_qr_data(ticker: str, force_scrape: bool = False, debug: bool = False) ->
             st.error(f"Failed to scrape QR for {ticker}")
     return df
 
+def get_historical_prices(ticker: str, years: list[int], debug: bool = False) -> pd.DataFrame:
+    if not years:
+        return pd.DataFrame()
+    end_dates = []
+    for yr in sorted(years):
+        try:
+            end_date = datetime.date(yr, 3, 31) # Assuming Mar end FY
+            end_dates.append(end_date)
+        except:
+            continue
+    if not end_dates:
+        return pd.DataFrame()
+    start_date = min(end_dates) - datetime.timedelta(days=365 * len(end_dates) + 100) # Extra buffer
+    yf_ticker = yf.Ticker(ticker + ".NS")
+    hist = yf_ticker.history(start=start_date, end=datetime.date.today())
+    if hist.empty:
+        if debug:
+            st.warning(f"No historical price data for {ticker}")
+        return pd.DataFrame()
+    fy_prices = []
+    for end in sorted(end_dates):
+        # FIX: Localize to UTC to match hist index tz
+        end_aware = pd.to_datetime(end).tz_localize('UTC')
+        period_hist = hist.loc[:end_aware]
+        if not period_hist.empty:
+            close = period_hist["Close"].iloc[-1]
+        else:
+            close = np.nan
+        fy_prices.append(close)
+    fy_df = pd.DataFrame({"FY End Date": sorted(end_dates), "FY End Price": fy_prices})
+    fy_df["Year"] = [d.year for d in fy_df["FY End Date"]]
+   
+    # FIX: Proxy first available close to the last pre-listing FY
+    nan_indices = fy_df[fy_df["FY End Price"].isna()].index.tolist()
+    if nan_indices and len(fy_prices) > len(nan_indices):
+        first_close = hist["Close"].iloc[0]
+        # Find the last consecutive NaN from the start
+        last_pre_idx = 0
+        for k in range(1, len(fy_prices)):
+            if pd.isna(fy_prices[k-1]) and not pd.isna(fy_prices[k]):
+                last_pre_idx = k - 1
+                break
+        else:
+            last_pre_idx = nan_indices[-1] if nan_indices else 0
+        if last_pre_idx < len(fy_prices):
+            fy_df.loc[last_pre_idx, "FY End Price"] = first_close
+            if debug:
+                st.info(f"Proxied price {first_close:.2f} to FY {fy_df.loc[last_pre_idx, 'Year']} for {ticker}")
+   
+    # Warning if proxied
+    if nan_indices:
+        st.warning(f"Limited price history for {ticker}: Proxied {len(nan_indices)} FY(s) with first available close.")
+   
+    return fy_df
+
+def build_historical_models(merged_df: pd.DataFrame, ticker: str, is_bank: bool, profit_label: str, sales_label: str = None, debug: bool = False) -> tuple[dict, dict]:
+    valid_df = merged_df.dropna(subset=["FY End Price"]).copy()
+    if valid_df.empty:
+        return {}, {}
+    valid_df = valid_df.sort_values("Year").reset_index(drop=True)
+    years = valid_df["Year"].tolist()
+    if len(years) < 2:
+        return {}, {}
+    
+    historical_op = {}
+    historical_sales = {}
+    
+    features_op = [f"{profit_label} (Cr)"]
+    if is_bank:
+        for feat in ['Gross NPA', 'Book Value', 'Dividend', 'NIM']:
+            if feat in valid_df.columns:
+                features_op.append(feat)
+    
+    for i in range(1, len(years)):
+        train_df = valid_df.iloc[:i].copy()
+        test_year = years[i]
+        if len(train_df) < 2:
+            continue
+        X_train = train_df[features_op].values
+        y_train = train_df["FY End Price"].values
+        model = LinearRegression()
+        model.fit(X_train, y_train)
+        test_row = valid_df.loc[valid_df["Year"] == test_year, features_op].values[0]
+        pred = model.predict([test_row])[0]
+        actual = valid_df.loc[valid_df["Year"] == test_year, "FY End Price"].iloc[0]
+        misprice = ((actual - pred) / pred * 100) if pred != 0 else 0
+        status = "Overvalued" if misprice > 20 else "Undervalued" if misprice < -20 else "Fair"
+        historical_op[test_year] = {
+            "OP": test_row[0],
+            "Fair": round(pred, 2),
+            "Actual": actual,
+            "Misprice": round(misprice, 1),
+            "Status": status
+        }
+    
+    if sales_label and f"{sales_label} (Cr)" in valid_df.columns:
+        features_sales = [f"{sales_label} (Cr)"]
+        if is_bank:
+            for feat in ['Gross NPA', 'Book Value', 'Dividend', 'NIM']:
+                if feat in valid_df.columns:
+                    features_sales.append(feat)
+        for i in range(1, len(years)):
+            train_df = valid_df.iloc[:i].copy()
+            test_year = years[i]
+            if len(train_df) < 2:
+                continue
+            X_train = train_df[features_sales].values
+            y_train = train_df["FY End Price"].values
+            model = LinearRegression()
+            model.fit(X_train, y_train)
+            test_row = valid_df.loc[valid_df["Year"] == test_year, features_sales].values[0]
+            pred = model.predict([test_row])[0]
+            actual = valid_df.loc[valid_df["Year"] == test_year, "FY End Price"].iloc[0]
+            misprice = ((actual - pred) / pred * 100) if pred != 0 else 0
+            status = "Overvalued" if misprice > 20 else "Undervalued" if misprice < -20 else "Fair"
+            historical_sales[test_year] = {
+                "Sales": test_row[0],
+                "Fair": round(pred, 2),
+                "Actual": actual,
+                "Misprice": round(misprice, 1),
+                "Status": status
+            }
+    
+    return historical_op, historical_sales
+
 def analyze_single_ticker(ticker: str, fy_start: int, force_scrape: bool = False, debug: bool = False, include_other_income: bool = False):
     ticker = ticker.strip().upper()
     if not is_valid_ticker(ticker):
@@ -514,30 +633,33 @@ def analyze_single_ticker(ticker: str, fy_start: int, force_scrape: bool = False
 
     def extract_metric(row_idx):
         if row_idx is None:
-            return pd.Series()
-        series = pl_df.loc[row_idx].iloc[1:]
-        raw_cols = pl_df.columns[1:]
+            return pd.Series(dtype=float)
+        series = pl_df.loc[row_idx]
+        raw_cols = pl_df.columns.tolist()
         years, vals = [], []
-        for i, col in enumerate(raw_cols):
-            col_str = col.strip()
+        for col in raw_cols:
+            col_str = str(col).strip()
             if col_str.upper() == "TTM":
                 continue
             m = re.search(r"\d{2,4}", col_str)
             if m:
-                yr = int(m.group())
+                yr_str = m.group(0)
+                yr = int(yr_str)
+                if len(yr_str) == 2:
+                    yr += 2000
                 if 2000 <= yr <= 2100:
                     years.append(yr)
-                    vals.append(series.iloc[i])
+                    vals.append(series[col])
                     continue
             try:
                 yr = int(col_str)
                 if 2000 <= yr <= 2100:
                     years.append(yr)
-                    vals.append(series.iloc[i])
+                    vals.append(series[col])
             except:
                 continue
         if not years:
-            return pd.Series()
+            return pd.Series(dtype=float)
         clean = clean_numeric(pd.Series(vals, index=years))
         return clean[clean != 0].dropna()
 
@@ -557,6 +679,11 @@ def analyze_single_ticker(ticker: str, fy_start: int, force_scrape: bool = False
     if profit_clean.empty:
         return {"ticker": ticker, "error": "No Profit data"}
 
+    # Finance metrics if bank
+    finance_metrics = {}
+    if is_bank:
+        finance_metrics = scrape_finance_metrics(pl_df, debug)
+
     # Price data
     try:
         start_date = f"{fy_start}-04-01"
@@ -568,8 +695,7 @@ def analyze_single_ticker(ticker: str, fy_start: int, force_scrape: bool = False
     if price_df.empty:
         return {"ticker": ticker, "error": "No price data"}
     price_df = price_df.copy()
-    #price_df["FY_Year"] = price_df.index.year //changed due to error below line in place of this
-    price_df["FY_Year"] = price_df.index.year + (price_df.index.month >= 4).astype(int)  # FIXED LINE
+    price_df["FY_Year"] = price_df.index.year
     price_df.loc[price_df.index.month <= 3, "FY_Year"] -= 1
     # UPGRADE: Use FY-End Close instead of average
     fy_end_price = price_df.groupby("FY_Year")["Close"].last().round(2)
@@ -606,16 +732,35 @@ def analyze_single_ticker(ticker: str, fy_start: int, force_scrape: bool = False
         index=common_years_profit,
     ).sort_index()
 
-    X = merged_profit[f"{profit_label} (Cr)"].values.reshape(-1, 1)
+    # Add finance metrics to merged_profit if bank
+    if is_bank:
+        for label, series in finance_metrics.items():
+            common_f = series.index.intersection(common_years_profit)
+            if len(common_f) >= 2:
+                merged_profit[label] = series.loc[common_f].reindex(merged_profit.index, fill_value=0)
+
+    # Define features for OP model
+    features_op = [f"{profit_label} (Cr)"]
+    if is_bank:
+        for feat in ['Gross NPA', 'Book Value', 'Dividend', 'NIM']:
+            if feat in merged_profit.columns:
+                features_op.append(feat)
+
+    X = merged_profit[features_op].values
     y = merged_profit["FY End Price"].values
     model = LinearRegression().fit(X, y)
     latest_profit = float(merged_profit[f"{profit_label} (Cr)"].iloc[-1])
-    pred_price = round(float(model.predict([[latest_profit]])[0]), 2)
+    latest_features_op = [latest_profit] + [merged_profit[feat].iloc[-1] for feat in features_op[1:]]
+    pred_price = round(float(model.predict([latest_features_op])[0]), 2)
     gain_pct = round(((pred_price - current_price) / current_price) * 100, 2) if current_price > 0 else 0.0
     r2 = round(model.score(X, y), 3)
-    b1 = round(model.coef_[0], 6)
     b0 = round(model.intercept_, 2)
-    eq = f"Price = {b0} + {b1} × {profit_label.split(' ')[0]}"
+    short_op = profit_label.split()[0]
+    eq_terms = [f"{b0}"]
+    for c, f in zip(model.coef_, features_op):
+        short = short_op if f == f"{profit_label} (Cr)" else f.split()[0] if ' %' in f else f
+        eq_terms.append(f"{c:.4f}*{short}")
+    eq = "Price = " + " + ".join(eq_terms)
 
     # Sales model (optional)
     model_sales = None
@@ -635,34 +780,57 @@ def analyze_single_ticker(ticker: str, fy_start: int, force_scrape: bool = False
             index=common_years_sales,
         ).sort_index()
 
-        X_sales = merged_sales[f"{sales_label} (Cr)"].values.reshape(-1, 1)
+        # Add finance metrics to merged_sales if bank
+        if is_bank:
+            for label, series in finance_metrics.items():
+                common_f = series.index.intersection(common_years_sales)
+                if len(common_f) >= 2:
+                    merged_sales[label] = series.loc[common_f].reindex(merged_sales.index, fill_value=0)
+
+        # Define features for sales model
+        features_sales = [f"{sales_label} (Cr)"]
+        if is_bank:
+            for feat in ['Gross NPA', 'Book Value', 'Dividend', 'NIM']:
+                if feat in merged_sales.columns:
+                    features_sales.append(feat)
+
+        X_sales = merged_sales[features_sales].values
         y_sales = merged_sales["FY End Price"].values
         model_sales = LinearRegression().fit(X_sales, y_sales)
         latest_sales = float(merged_sales[f"{sales_label} (Cr)"].iloc[-1])
-        pred_price_sales = round(float(model_sales.predict([[latest_sales]])[0]), 2)
+        latest_features_sales = [latest_sales] + [merged_sales[feat].iloc[-1] for feat in features_sales[1:]]
+        pred_price_sales = round(float(model_sales.predict([latest_features_sales])[0]), 2)
         r2_sales = round(model_sales.score(X_sales, y_sales), 3)
-        b1_sales = round(model_sales.coef_[0], 6)
         b0_sales = round(model_sales.intercept_, 2)
-        eq_sales = f"Price = {b0_sales} + {b1_sales} × {sales_label.split()[0]}"
+        short_sales = sales_label.split()[0]
+        eq_terms_sales = [f"{b0_sales}"]
+        for c, f in zip(model_sales.coef_, features_sales):
+            short = short_sales if f == f"{sales_label} (Cr)" else f.split()[0] if ' %' in f else f
+            eq_terms_sales.append(f"{c:.4f}*{short}")
+        eq_sales = "Price = " + " + ".join(eq_terms_sales)
 
     # Historical valuation (OP)
     historical_op = {}
     for yr in merged_profit.index:
-        op_val = merged_profit.loc[yr, f"{profit_label} (Cr)"]
-        fair = round(float(model.predict([[op_val]])[0]), 2)
+        row_vals_op = [merged_profit.loc[yr, f] for f in features_op]
+        pred_input_op = [row_vals_op]
+        fair = round(float(model.predict(pred_input_op)[0]), 2)
         actual = merged_profit.loc[yr, "FY End Price"]
         misprice = round(((actual - fair) / fair) * 100, 1) if fair != 0 else 0.0
         status = "Overvalued" if misprice > 20 else "Undervalued" if misprice < -20 else "Fair"
+        op_val = merged_profit.loc[yr, f"{profit_label} (Cr)"]
         historical_op[yr] = {"OP": op_val, "Fair": fair, "Actual": actual, "Misprice": misprice, "Status": status}
 
     historical_sales = {}
     if has_sales:
         for yr in merged_sales.index:
-            sales_val = merged_sales.loc[yr, f"{sales_label} (Cr)"]
-            fair = round(float(model_sales.predict([[sales_val]])[0]), 2)
+            row_vals_sales = [merged_sales.loc[yr, f] for f in features_sales]
+            pred_input_sales = [row_vals_sales]
+            fair = round(float(model_sales.predict(pred_input_sales)[0]), 2)
             actual = merged_sales.loc[yr, "FY End Price"]
             misprice = round(((actual - fair) / fair) * 100, 1) if fair != 0 else 0.0
             status = "Overvalued" if misprice > 20 else "Undervalued" if misprice < -20 else "Fair"
+            sales_val = merged_sales.loc[yr, f"{sales_label} (Cr)"]
             historical_sales[yr] = {"Sales": sales_val, "Fair": fair, "Actual": actual, "Misprice": misprice, "Status": status}
 
     # Quarterly & TTM
@@ -687,6 +855,10 @@ def analyze_single_ticker(ticker: str, fy_start: int, force_scrape: bool = False
     historical_sales_ttm = {}
     sales_label_q = None
     price_series_q = None
+
+    finance_q_metrics = {}
+    if qr_df is not None and not qr_df.empty and is_bank:
+        finance_q_metrics = scrape_quarterly_finance_metrics(qr_df, debug)
 
     if qr_df is not None and not qr_df.empty:
         profit_row_idx_q, _ = find_row(qr_df, "profit")
@@ -734,20 +906,42 @@ def analyze_single_ticker(ticker: str, fy_start: int, force_scrape: bool = False
                         },
                         index=common_ttm,
                     ).sort_index()
-                    X_t = merged_ttm[f"{ttm_label} TTM (Cr)"].values.reshape(-1, 1)
+
+                    # Add quarterly finance metrics (point-in-time at quarter end)
+                    if is_bank and finance_q_metrics:
+                        for label, series_q in finance_q_metrics.items():
+                            common_f_q = series_q.index.intersection(common_ttm)
+                            if len(common_f_q) >= 2:
+                                merged_ttm[label] = series_q.loc[common_f_q].reindex(merged_ttm.index, fill_value=0)
+
+                    # Define features for TTM model
+                    features_ttm = [f"{ttm_label} TTM (Cr)"]
+                    if is_bank:
+                        for feat in ['Gross NPA', 'Book Value', 'Dividend', 'NIM']:
+                            if feat in merged_ttm.columns:
+                                features_ttm.append(feat)
+
+                    X_t = merged_ttm[features_ttm].values
                     y_t = merged_ttm["Quarter End Price"].values
                     model_t = LinearRegression().fit(X_t, y_t)
                     latest_ttm = float(merged_ttm[f"{ttm_label} TTM (Cr)"].iloc[-1])
-                    pred_price_ttm = round(float(model_t.predict([[latest_ttm]])[0]), 2)
+                    latest_features_ttm = [latest_ttm] + [merged_ttm[feat].iloc[-1] for feat in features_ttm[1:]]
+                    pred_price_ttm = round(float(model_t.predict([latest_features_ttm])[0]), 2)
                     gain_pct_ttm = round(((pred_price_ttm - current_price) / current_price) * 100, 2) if current_price > 0 else 0.0
                     r2_ttm = round(model_t.score(X_t, y_t), 3)
-                    b1_t = round(model_t.coef_[0], 6)
                     b0_t = round(model_t.intercept_, 2)
-                    eq_ttm = f"Price = {b0_t} + {b1_t} × {ttm_label.split()[0]} TTM"
+                    short_ttm = ttm_label.split()[0]
+                    eq_terms_ttm = [f"{b0_t}"]
+                    for c, f in zip(model_t.coef_, features_ttm):
+                        short = short_ttm if f == f"{ttm_label} TTM (Cr)" else f.split()[0] if ' %' in f else f
+                        eq_terms_ttm.append(f"{c:.4f}*{short}")
+                    eq_ttm = "Price = " + " + ".join(eq_terms_ttm)
                     historical_ttm = {}
                     for dt in merged_ttm.index:
+                        row_vals_ttm = [merged_ttm.loc[dt, f] for f in features_ttm]
+                        pred_input_ttm = [row_vals_ttm]
                         ttm_val = merged_ttm.loc[dt, f"{ttm_label} TTM (Cr)"]
-                        fair = round(float(model_t.predict([[ttm_val]])[0]), 2)
+                        fair = round(float(model_t.predict(pred_input_ttm)[0]), 2)
                         actual = merged_ttm.loc[dt, "Quarter End Price"]
                         misprice = round(((actual - fair) / fair) * 100, 1) if fair != 0 else 0.0
                         status = "Overvalued" if misprice > 20 else "Undervalued" if misprice < -20 else "Fair"
@@ -778,20 +972,42 @@ def analyze_single_ticker(ticker: str, fy_start: int, force_scrape: bool = False
                         },
                         index=common_sales_ttm,
                     ).sort_index()
-                    X_st = merged_sales_ttm[f"{sales_label_q} TTM (Cr)"].values.reshape(-1, 1)
+
+                    # Add quarterly finance metrics for sales TTM
+                    if is_bank and finance_q_metrics:
+                        for label, series_q in finance_q_metrics.items():
+                            common_f_sq = series_q.index.intersection(common_sales_ttm)
+                            if len(common_f_sq) >= 2:
+                                merged_sales_ttm[label] = series_q.loc[common_f_sq].reindex(merged_sales_ttm.index, fill_value=0)
+
+                    # Define features for TTM sales model
+                    features_sales_ttm = [f"{sales_label_q} TTM (Cr)"]
+                    if is_bank:
+                        for feat in ['Gross NPA', 'Book Value', 'Dividend', 'NIM']:
+                            if feat in merged_sales_ttm.columns:
+                                features_sales_ttm.append(feat)
+
+                    X_st = merged_sales_ttm[features_sales_ttm].values
                     y_st = merged_sales_ttm["Quarter End Price"].values
                     model_st = LinearRegression().fit(X_st, y_st)
                     latest_sales_t = float(merged_sales_ttm[f"{sales_label_q} TTM (Cr)"].iloc[-1])
-                    pred_price_sales_ttm = round(float(model_st.predict([[latest_sales_t]])[0]), 2)
+                    latest_features_st = [latest_sales_t] + [merged_sales_ttm[feat].iloc[-1] for feat in features_sales_ttm[1:]]
+                    pred_price_sales_ttm = round(float(model_st.predict([latest_features_st])[0]), 2)
                     gain_pct_sales_ttm = round(((pred_price_sales_ttm - current_price) / current_price) * 100, 2) if current_price > 0 else 0.0
                     r2_sales_ttm = round(model_st.score(X_st, y_st), 3)
-                    b1_st = round(model_st.coef_[0], 6)
                     b0_st = round(model_st.intercept_, 2)
-                    eq_sales_ttm = f"Price = {b0_st} + {b1_st} × {sales_label_q.split()[0]} TTM"
+                    short_st = sales_label_q.split()[0]
+                    eq_terms_st = [f"{b0_st}"]
+                    for c, f in zip(model_st.coef_, features_sales_ttm):
+                        short = short_st if f == f"{sales_label_q} TTM (Cr)" else f.split()[0] if ' %' in f else f
+                        eq_terms_st.append(f"{c:.4f}*{short}")
+                    eq_sales_ttm = "Price = " + " + ".join(eq_terms_st)
                     historical_sales_ttm = {}
                     for dt in merged_sales_ttm.index:
+                        row_vals_st = [merged_sales_ttm.loc[dt, f] for f in features_sales_ttm]
+                        pred_input_st = [row_vals_st]
                         st_val = merged_sales_ttm.loc[dt, f"{sales_label_q} TTM (Cr)"]
-                        fair = round(float(model_st.predict([[st_val]])[0]), 2)
+                        fair = round(float(model_st.predict(pred_input_st)[0]), 2)
                         actual = merged_sales_ttm.loc[dt, "Quarter End Price"]
                         misprice = round(((actual - fair) / fair) * 100, 1) if fair != 0 else 0.0
                         status = "Overvalued" if misprice > 20 else "Undervalued" if misprice < -20 else "Fair"
@@ -880,7 +1096,6 @@ with container:
 
         if uploaded_sector_file:
             try:
-                #tmp = pd.read_csv(uploaded_sector_file)
                 tmp = pd.read_csv(uploaded_sector_file, encoding="latin1")
                 tmp.columns = [c.strip().title() for c in tmp.columns]
                 if {"Symbol", "Sector"}.issubset(tmp.columns):
@@ -1179,6 +1394,12 @@ if "summary_df" in st.session_state:
                             display_rows.append(res["sales_row_idx_q"])
                         if res.get("other_row_idx_q"):
                             display_rows.append(res["other_row_idx_q"])
+                        # Add finance rows if bank
+                        if is_bank_or_finance(selected):
+                            for metric_name in ["gross_npa", "net_npa", "book_value", "dividend", "nim"]:
+                                row_idx, _ = find_row(res["qr_df"], metric_name)
+                                if row_idx:
+                                    display_rows.append(row_idx)
                         if display_rows:
                             q_disp_df = res["qr_df"].loc[display_rows].copy()
                             st.dataframe(q_disp_df, use_container_width=True)
@@ -1323,5 +1544,3 @@ if "summary_df" in st.session_state:
         st.download_button("Download All Results (batch)", data=csv_all, file_name=f"analysis_batch_{datetime.date.today()}.csv", mime="text/csv")
     else:
         st.info("No analysis results available to export.")
-
-#st.caption(f"Data cached in `{DATA_DIR}/` • Upload Sector CSV with `Symbol, Sector` to enable sector-based batch runs.")
