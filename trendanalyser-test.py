@@ -567,7 +567,7 @@ def analyze_single_ticker(ticker: str, fy_start: int, force_scrape: bool = False
 
     if price_df.empty:
         return {"ticker": ticker, "error": "No price data"}
-    price_df = price_df.copy()
+    price_df = price_df.copy() 
     #price_df["FY_Year"] = price_df.index.year //changed due to error below line in place of this
     price_df["FY_Year"] = price_df.index.year + (price_df.index.month >= 4).astype(int)  # FIXED LINE
     price_df.loc[price_df.index.month <= 3, "FY_Year"] -= 1
