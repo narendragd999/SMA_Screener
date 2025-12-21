@@ -1,0 +1,14 @@
+Sector,Company,Ticker,S.No.,CMP
+                    Rs.,All time high
+                    Rs.,Quarter growing perc
+                    %,DFLH
+                    %,Mar Cap
+                    Rs.Cr.,NP Qtr
+                    Rs.Cr.,P/E,10Yrs PE,Debt / Eq,ROCE
+                    %,ROE
+                    %,CMP / BV,NP PY Qtr
+                    Rs.Cr.,NP Ann
+                    Rs.Cr.,Up
+                    %
+"Engineering Services Companies","Knowledge Marine","KMEW","Knowledge Marine","3032.60","3089.00","-8.75","1.83","3706.46","11.89","75.17","29.18","0.61","24.67","25.77","13.66","13.03","49.60","139.91"
+"Engineering Services Companies","Dredging Corpn.","DREDGECORP","Dredging Corpn.","880.55","1457.95","2.00","39.60","2465.54","-34.18","","45.51","0.91","-0.31","-3.67","2.13","-33.51","-27.46","77.98"

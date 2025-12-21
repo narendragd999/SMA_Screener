@@ -1,0 +1,34 @@
+Sector,Company,Ticker,S.No.,CMP
+                    Rs.,All time high
+                    Rs.,Quarter growing perc
+                    %,DFLH
+                    %,Mar Cap
+                    Rs.Cr.,NP Qtr
+                    Rs.Cr.,P/E,10Yrs PE,Debt / Eq,ROCE
+                    %,ROE
+                    %,CMP / BV,NP PY Qtr
+                    Rs.Cr.,NP Ann
+                    Rs.Cr.,Up
+                    %
+"Healthcare Equipment & Supplies Companies","Poly Medicure","POLYMED","Poly Medicure","1899.10","3357.80","4.97","43.44","19249.18","91.80","53.18","46.04","0.08","20.08","15.77","6.60","87.45","338.56","4.28"
+"Healthcare Equipment & Supplies Companies","Fischer Medical","FISCHER","Fischer Medical","46.20","124.70","4693.10","62.95","2996.14","13.90","149.21","2085.00","0.08","1.08","0.70","8.32","0.29","1.20","13.26"
+"Healthcare Equipment & Supplies Companies","Laxmi Dental","LAXMIDENTL","Laxmi Dental","269.75","584.00","44.58","53.81","1482.60","8.53","57.55","53.02","0.04","19.20","21.88","6.47","5.90","31.83","10.42"
+"Healthcare Equipment & Supplies Companies","OSEL Devices","OSELDEVICE","OSEL Devices","694.05","835.00","89.64","16.88","1228.09","15.19","45.10","22.93","0.56","31.14","30.08","6.94","8.01","20.05","272.64"
+"Healthcare Equipment & Supplies Companies","Tarsons Products","TARSONS","Tarsons Products","221.83","928.65","-67.74","76.11","1180.27","3.32","57.41","32.40","0.63","6.91","4.75","1.88","10.29","29.77","12.04"
+"Healthcare Equipment & Supplies Companies","Vasa Denticity","DENTALKART","Vasa Denticity","595.00","840.00","-7.08","29.17","1031.54","4.99","63.79","61.34","0.00","23.17","17.01","6.03","5.37","17.09","11.63"
+"Healthcare Equipment & Supplies Companies","Aprameya Enginee","APRAMEYA","Aprameya Enginee","331.00","360.00","-490.75","8.06","630.22","6.76","25.62","28.94","0.53","31.12","36.78","8.88","-1.73","16.12","282.66"
+"Healthcare Equipment & Supplies Companies","Prevest Denpro","543363","Prevest Denpro","438.05","686.00","15.08","36.14","525.79","5.57","26.41","32.97","0.00","25.25","18.74","4.54","4.84","18.20","11.29"
+"Healthcare Equipment & Supplies Companies","Hemant Surgical","543916","Hemant Surgical","294.60","367.10","70.13","19.75","384.11","5.41","37.08","16.96","0.43","16.35","13.58","3.13","3.18","8.13","234.20"
+"Healthcare Equipment & Supplies Companies","Nureca","NURECA","Nureca","305.50","2316.60","-856.25","86.81","305.51","3.63","74.33","35.24","0.03","-0.90","-1.12","1.54","-0.48","0.85","54.29"
+"Healthcare Equipment & Supplies Companies","Vaidya Sane","MADHAVBAUG","Vaidya Sane","275.00","376.95","28.46","27.05","289.12","4.83","32.12","43.58","0.01","18.45","13.56","4.27","3.76","7.14","239.09"
+"Healthcare Equipment & Supplies Companies","Earkart","544549","Earkart","180.00","265.95","-44.11","32.32","247.57","1.85","45.68","31.64","0.09","45.13","41.77","","3.31","6.88","32.84"
+"Healthcare Equipment & Supplies Companies","QMS Medical","QMSMEDI","QMS Medical","91.90","233.12","-15.37","60.58","177.71","3.58","14.44","21.33","0.55","16.60","14.36","1.69","4.23","13.70","28.48"
+"Healthcare Equipment & Supplies Companies","Royal Sense","544143","Royal Sense","235.30","316.05","70.59","25.55","125.89","4.06","15.70","19.23","0.19","35.18","27.55","3.56","2.38","6.33","34.46"
+"Healthcare Equipment & Supplies Companies","Shree Pacetronix","527005","Shree Pacetronix","242.65","391.90","4266.67","38.08","94.63","1.31","40.97","22.25","0.32","9.12","5.59","5.54","0.03","0.75","297.07"
+"Healthcare Equipment & Supplies Companies","Mohini Health","MHHL","Mohini Health","41.00","96.95","-181.95","57.71","74.77","-3.95","22.39","9.22","0.37","14.12","10.03","0.74","4.82","5.93","0.00"
+"Healthcare Equipment & Supplies Companies","Choksi Asia","530427","Choksi Asia","125.50","126.50","107.69","0.79","71.55","1.35","21.36","14.58","0.08","13.20","10.41","1.83","0.65","3.10","96.00"
+"Healthcare Equipment & Supplies Companies","Amkay Products","544169","Amkay Products","45.65","120.96","7.65","62.26","39.51","1.97","11.35","14.91","0.07","16.88","14.79","1.52","1.83","3.34","26.81"
+"Healthcare Equipment & Supplies Companies","Centenial Surgic","531380","Centenial Surgic","100.40","189.00","-107.69","46.88","36.63","-0.01","","23.71","0.35","3.94","-4.64","1.19","0.13","-1.46","22.22"
+"Healthcare Equipment & Supplies Companies","Galaxy Medicare","GML","Galaxy Medicare","19.50","54.00","","63.89","29.59","","8.99","7.61","0.19","17.72","14.46","","","3.37","7.73"
+"Healthcare Equipment & Supplies Companies","GKB Ophthalmics","533212","GKB Ophthalmics","47.29","209.20","-260.00","77.39","23.84","1.84","","23.56","0.28","-6.00","-12.66","0.45","-1.15","-7.07","4.51"
+"Healthcare Equipment & Supplies Companies","Transpact Enter.","542765","Transpact Enter.","165.00","483.80","-200.00","65.89","6.38","0.05","63.80","702.88","0.12","0.00","2.22","12.76","-0.05","0.01","26.34"

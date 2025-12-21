@@ -1,0 +1,17 @@
+Sector,Company,Ticker,S.No.,CMP
+                    Rs.,All time high
+                    Rs.,Quarter growing perc
+                    %,DFLH
+                    %,Mar Cap
+                    Rs.Cr.,NP Qtr
+                    Rs.Cr.,P/E,10Yrs PE,Debt / Eq,ROCE
+                    %,ROE
+                    %,CMP / BV,NP PY Qtr
+                    Rs.Cr.,NP Ann
+                    Rs.Cr.,Up
+                    %
+"Diversified FMCG Companies","Hind. Unilever","HINDUNILVR","Hind. Unilever","2338.60","2904.71","3.82","19.49","549475.41","2694.00","51.94","59.11","0.04","27.85","20.72","11.28","2595.00","10671.00","14.40"
+"Diversified FMCG Companies","ITC","ITC","ITC","404.95","495.46","2.61","18.27","507352.32","5186.55","25.15","25.74","0.01","36.79","27.32","7.14","5054.43","35052.48","3.79"
+"Diversified FMCG Companies","Hindustan Foods","HNDFDS","Hindustan Foods","520.65","749.15","53.64","30.50","6220.82","35.23","49.21","73.20","0.87","14.34","13.97","5.98","22.93","109.64","23.52"
+"Diversified FMCG Companies","Godavari Bioref.","GODAVARIB","Godavari Bioref.","245.45","408.60","-44.55","39.93","1256.11","-41.59","26.96","467.58","0.68","5.79","-3.79","1.73","-75.00","-23.41","69.28"
+"Diversified FMCG Companies","Davangere Sugar","DAVANGERE","Davangere Sugar","3.90","22.67","103.88","82.80","557.70","2.63","44.12","153.44","0.40","6.70","3.17","1.11","1.29","10.94","28.71"
