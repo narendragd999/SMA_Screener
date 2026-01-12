@@ -1,0 +1,10 @@
+E:\Narendra\application\scripts
+CMD
+1. open command prompt
+
+2. go to path--- cd E:\Narendra\application\scripts
+
+3. e:   press enter 
+
+4. python -m streamlit run merge-stream.py
+
