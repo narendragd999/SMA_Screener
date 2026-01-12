@@ -9,7 +9,7 @@ from reportlab.lib.units import inch
 from io import BytesIO
 
 st.set_page_config(layout="wide", page_title="Missing + Duplicate Serial Analyzer")
-st.title("Missing & Duplicate Voter Serial Numbers Analyzer")
+st.title("Missing & Duplicate Voter Serial Numbers Analyzer UPdated")
 
 uploaded_file = st.file_uploader("Upload your Excel file", type=["xlsx", "xls"])
 
