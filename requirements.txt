@@ -9,3 +9,4 @@ numpy
 plotly
 openpyxl
 playwright
+reportlab
