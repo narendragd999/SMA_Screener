@@ -2,39 +2,46 @@ import streamlit as st
 import pandas as pd
 from collections import Counter
 from reportlab.lib.pagesizes import letter, landscape
-from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
+from reportlab.platypus import (
+    SimpleDocTemplate,
+    TableStyle,
+    Paragraph,
+    Spacer,
+    LongTable
+)
 from reportlab.lib import colors
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.units import inch
 from io import BytesIO
 
+# ─────────────────────────────────────────────
 st.set_page_config(layout="wide", page_title="Missing + Duplicate Serial Analyzer")
-st.title("Missing & Duplicate Voter Serial Numbers Analyzer (Updated)")
+st.title("Missing & Duplicate Voter Serial Numbers Analyzer")
 
-uploaded_file = st.file_uploader("Upload your Excel file", type=["xlsx", "xls"])
+uploaded_file = st.file_uploader("Upload Excel File", type=["xlsx", "xls"])
 
+# ─────────────────────────────────────────────
 def find_duplicates_in_ranges(ranges):
     all_serials = []
     for s, e in ranges:
-        all_serials.extend(range(s, e + 1))
+        all_serials.extend(range(int(s), int(e) + 1))
     counter = Counter(all_serials)
-    dups = [num for num, cnt in counter.items() if cnt > 1]
-    dups.sort()
+    dups = sorted([num for num, cnt in counter.items() if cnt > 1])
     return dups, len(dups)
 
+# ─────────────────────────────────────────────
 def create_summary_row(part, total_voters, ranges):
     if not ranges:
         return {
-            'Part': part,
-            'Total Voters': total_voters,
-            'Last Serial Used': 0,
-            'Missing Serial Numbers': 'None',
-            'Missing Count': total_voters,
-            'Duplicate Serial Numbers': 'None',
-            'Duplicate Count': 0
+            "Part": part,
+            "Total Voters": total_voters,
+            "Last Serial Used": 0,
+            "Missing Serial Numbers": "None",
+            "Missing Count": total_voters,
+            "Duplicate Serial Numbers": "None",
+            "Duplicate Count": 0
         }
 
-    # Merge overlapping/adjacent ranges
     merged = []
     for r in sorted(ranges):
         if not merged or merged[-1][1] + 1 < r[0]:
@@ -42,179 +49,167 @@ def create_summary_row(part, total_voters, ranges):
         else:
             merged[-1][1] = max(merged[-1][1], r[1])
 
-    # Last serial actually used = highest end number
-    last_used = max(end for _, end in ranges) if ranges else 0
+    last_used = max(end for _, end in ranges)
 
-    # Find missing numbers (1 to total_voters)
     missing = []
     current = 1
     for start, end in merged:
         if current < start:
             missing.extend(range(current, start))
         current = end + 1
-    
+
     if current <= total_voters:
         missing.extend(range(current, total_voters + 1))
 
     duplicates, dup_count = find_duplicates_in_ranges(ranges)
 
     return {
-        'Part': part,
-        'Total Voters': total_voters,
-        'Last Serial Used': last_used,
-        'Missing Serial Numbers': ','.join(map(str, missing)) if missing else 'None',
-        'Missing Count': len(missing),
-        'Duplicate Serial Numbers': ','.join(map(str, duplicates)) if duplicates else 'None',
-        'Duplicate Count': dup_count
+        "Part": part,
+        "Total Voters": total_voters,
+        "Last Serial Used": last_used,
+        "Missing Serial Numbers": ",".join(map(str, missing)) if missing else "None",
+        "Missing Count": len(missing),
+        "Duplicate Serial Numbers": ",".join(map(str, duplicates)) if duplicates else "None",
+        "Duplicate Count": dup_count
     }
 
+# ─────────────────────────────────────────────
 def create_pdf(df):
     buffer = BytesIO()
+
     doc = SimpleDocTemplate(
         buffer,
         pagesize=landscape(letter),
-        leftMargin=0.20*inch,
-        rightMargin=0.25*inch,
-        topMargin=0.40*inch,
-        bottomMargin=0.35*inch
+        leftMargin=0.25 * inch,
+        rightMargin=0.25 * inch,
+        topMargin=0.40 * inch,
+        bottomMargin=0.35 * inch
     )
+
     elements = []
     styles = getSampleStyleSheet()
 
-    title_style = ParagraphStyle('Title', parent=styles['Heading1'], fontSize=14, spaceAfter=8)
-    elements.append(Paragraph("Voter Serial Numbers Analysis Report", title_style))
-    
-    date_style = ParagraphStyle('Date', parent=styles['Normal'], fontSize=9, textColor=colors.grey)
-    elements.append(Paragraph(f"Generated: {pd.Timestamp.now().strftime('%Y-%m-%d %H:%M')}", date_style))
-    elements.append(Spacer(1, 0.18*inch))
+    elements.append(
+        Paragraph(
+            "<b>Voter Serial Numbers Analysis Report</b>",
+            ParagraphStyle("title", fontSize=14, spaceAfter=6)
+        )
+    )
 
-    # ─── Prepare table data ───────────────────────────────
+    elements.append(
+        Paragraph(
+            f"Generated on: {pd.Timestamp.now().strftime('%d-%m-%Y %H:%M')}",
+            ParagraphStyle("date", fontSize=9, textColor=colors.grey)
+        )
+    )
+
+    elements.append(Spacer(1, 10))
+
+    # ─── Table Data ───────────────────────────
     data = []
-    header = [Paragraph(f"<b>{col}</b>", styles['Normal']) for col in df.columns]
+    header = [Paragraph(f"<b>{c}</b>", styles["Normal"]) for c in df.columns]
     data.append(header)
 
-    compact_style = ParagraphStyle(
-        name='Compact',
-        fontSize=7.2,
-        leading=8.8,
-        alignment=0,  # left
-        spaceAfter=1,
-        wordWrap='CJK'
+    compact = ParagraphStyle(
+        "compact",
+        fontSize=6.8,
+        leading=8,
+        wordWrap="CJK"
     )
-    normal_right = ParagraphStyle(
-        name='Right',
-        parent=styles['Normal'],
-        alignment=2,  # right
-        fontSize=8.5
+
+    right = ParagraphStyle(
+        "right",
+        fontSize=8,
+        alignment=2
     )
 
     for _, row in df.iterrows():
         row_cells = []
-        for col_name, val in zip(df.columns, row):
-            if col_name in ['Missing Serial Numbers', 'Duplicate Serial Numbers'] and isinstance(val, str) and len(str(val)) > 35:
-                text = str(val).replace(',', ', ')
-                row_cells.append(Paragraph(text, compact_style))
-            elif col_name in ['Part', 'Last Serial Used', 'Missing Count', 'Duplicate Count', 'Total Voters']:
-                row_cells.append(Paragraph(str(val), normal_right))
+        for col, val in zip(df.columns, row):
+            if col in ["Missing Serial Numbers", "Duplicate Serial Numbers"]:
+                row_cells.append(Paragraph(str(val), compact))
+            elif col in ["Part", "Total Voters", "Last Serial Used", "Missing Count", "Duplicate Count"]:
+                row_cells.append(Paragraph(str(val), right))
             else:
-                row_cells.append(Paragraph(str(val), styles['Normal']))
+                row_cells.append(Paragraph(str(val), styles["Normal"]))
         data.append(row_cells)
 
-    # Adjusted column widths (added Last Serial Used)
     col_widths = [
-        0.85*inch,   # Part
-        0.90*inch,   # Total Voters
-        0.35*inch,   # Last Serial Used      ← NEW
-        4.80*inch,   # Missing Serial Numbers  (reduced a bit)
-        0.90*inch,   # Missing Count
-        2.70*inch,   # Duplicate Serial Numbers
-        0.30*inch    # Duplicate Count
+        0.8 * inch,
+        0.9 * inch,
+        0.6 * inch,
+        4.8 * inch,
+        0.8 * inch,
+        2.8 * inch,
+        0.6 * inch
     ]
 
-    table = Table(data, colWidths=col_widths, repeatRows=1)
+    table = LongTable(
+        data,
+        colWidths=col_widths,
+        repeatRows=1,
+        splitByRow=1
+    )
+
     table.setStyle(TableStyle([
-        # Header
-        ('BACKGROUND', (0,0), (-1,0), colors.darkblue),
-        ('TEXTCOLOR', (0,0), (-1,0), colors.white),
-        ('ALIGN', (0,0), (-1,0), 'CENTER'),
-        ('FONTNAME', (0,0), (-1,0), 'Helvetica-Bold'),
-        ('FONTSIZE', (0,0), (-1,0), 9.8),
-        ('BOTTOMPADDING', (0,0), (-1,0), 6),
-        ('VALIGN', (0,0), (-1,0), 'MIDDLE'),
-        # Body
-        ('GRID', (0,0), (-1,-1), 0.45, colors.lightgrey),
-        ('FONTSIZE', (0,1), (-1,-1), 8),
-        ('VALIGN', (0,1), (-1,-1), 'TOP'),
-        # Alignments
-        ('ALIGN', (0,1), (0,-1), 'RIGHT'),  # Part
-        ('ALIGN', (1,1), (1,-1), 'RIGHT'),  # Total Voters
-        ('ALIGN', (2,1), (2,-1), 'RIGHT'),  # Last Serial Used
-        ('ALIGN', (3,1), (3,-1), 'LEFT'),   # Missing...
-        ('ALIGN', (4,1), (4,-1), 'RIGHT'),  # Miss Count
-        ('ALIGN', (5,1), (5,-1), 'LEFT'),   # Duplicates
-        ('ALIGN', (6,1), (6,-1), 'RIGHT'),  # Dup Count
-        ('LEFTPADDING', (0,0), (-1,-1), 5),
-        ('RIGHTPADDING', (0,0), (-1,-1), 6),
-        ('TOPPADDING', (0,0), (-1,-1), 3),
-        ('BOTTOMPADDING', (0,0), (-1,-1), 3),
-        ('ROWBACKGROUNDS', (0,1), (-1,-1), [colors.white, colors.HexColor('#f9f9f9')]),
+        ("BACKGROUND", (0, 0), (-1, 0), colors.darkblue),
+        ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+        ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+        ("FONTSIZE", (0, 0), (-1, 0), 9),
+        ("ALIGN", (0, 0), (-1, 0), "CENTER"),
+
+        ("GRID", (0, 0), (-1, -1), 0.4, colors.lightgrey),
+        ("VALIGN", (0, 1), (-1, -1), "TOP"),
+
+        ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, colors.HexColor("#f5f5f5")]),
+        ("LEFTPADDING", (0, 0), (-1, -1), 5),
+        ("RIGHTPADDING", (0, 0), (-1, -1), 5),
+        ("TOPPADDING", (0, 0), (-1, -1), 3),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 3),
     ]))
+
     elements.append(table)
     doc.build(elements)
+
     buffer.seek(0)
     return buffer
 
-# ────────────────────────────────────────────────────────────────
-if uploaded_file is not None:
+# ─────────────────────────────────────────────
+if uploaded_file:
     try:
         df_input = pd.read_excel(uploaded_file)
-        required = ['Part No', 'Part Total Voter', 'Start', 'End']
+
+        required = ["Part No", "Part Total Voter", "Start", "End"]
         if not all(col in df_input.columns for col in required):
             st.error(f"Excel must contain columns: {', '.join(required)}")
             st.stop()
 
-        summary_rows = []
-        for part, group in df_input.groupby('Part No'):
-            total = int(group['Part Total Voter'].iloc[0])
-            ranges = list(zip(group['Start'], group['End']))
-            summary_rows.append(create_summary_row(part, total, ranges))
+        summary = []
+        for part, group in df_input.groupby("Part No"):
+            total = int(group["Part Total Voter"].iloc[0])
+            ranges = list(zip(group["Start"], group["End"]))
+            summary.append(create_summary_row(part, total, ranges))
 
-        if not summary_rows:
-            st.info("No data to analyze.")
-            st.stop()
-
-        result_df = pd.DataFrame(summary_rows)
-
-        # ── Reorder columns for better readability ──
-        result_df = result_df[[
-            'Part', 'Total Voters', 'Last Serial Used',
-            'Missing Serial Numbers', 'Missing Count',
-            'Duplicate Serial Numbers', 'Duplicate Count'
+        result_df = pd.DataFrame(summary)[[
+            "Part",
+            "Total Voters",
+            "Last Serial Used",
+            "Missing Serial Numbers",
+            "Missing Count",
+            "Duplicate Serial Numbers",
+            "Duplicate Count"
         ]]
 
         st.subheader("Part-wise Summary")
-        st.dataframe(
-            result_df,
-            column_config={
-                "Part": st.column_config.TextColumn("Part", width="small"),
-                "Total Voters": st.column_config.NumberColumn("Total", width="small"),
-                "Last Serial Used": st.column_config.NumberColumn("Last Used", width="small"),
-                "Missing Serial Numbers": st.column_config.TextColumn("Missing Numbers", width="large"),
-                "Missing Count": st.column_config.NumberColumn("Miss. Count", width="small"),
-                "Duplicate Serial Numbers": st.column_config.TextColumn("Duplicates", width="medium"),
-                "Duplicate Count": st.column_config.NumberColumn("Dup. Count", width="small")
-            },
-            use_container_width=True,
-            hide_index=True
-        )
+        st.dataframe(result_df, use_container_width=True, hide_index=True)
 
-        pdf_buffer = create_pdf(result_df)
+        pdf = create_pdf(result_df)
         st.download_button(
-            label="📄 Download PDF Report",
-            data=pdf_buffer,
+            "📄 Download PDF Report",
+            pdf,
             file_name="Voter_Serial_Analysis.pdf",
             mime="application/pdf"
         )
 
     except Exception as e:
-        st.error(f"Error processing file:\n{str(e)}")
+        st.error(str(e))
